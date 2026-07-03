@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Data caches
+**/cache/
+*.csv
+
+# Reports (generated artifacts)
+**/reports/
+
+# Virtual env
+pyvenv.cfg
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
