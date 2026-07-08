@@ -90,6 +90,30 @@ SIGNAL_GRADE_THRESHOLDS = {
 }
 
 # ============================================================
+# ATR移动跟踪止损配置 (v2.4.0 新增)
+# ============================================================
+# 基于两阶段网格搜索优化结果（2026-07-08, 5年时间序列分割60/40）
+# 最优: Sharpe 1.168 | 年化 26.1% | 卡玛 1.22 (vs 无止损 Sharpe 0.291)
+ATR_STOP_CONFIG = {
+    "atr_period": 20,        # ATR计算周期
+    "atr_multiplier": 1.5,   # ATR倍数（止损距离 = 最高收盘价 - 倍数×ATR）
+    "weekday": 4,            # 调仓日 (0=周一 ... 4=周五)
+    "top_n": 2,              # 候选池行业数
+    "entry_threshold": 55,   # 开仓分数门槛
+    "exit_threshold": 25,    # 退出分数门槛
+    "force_cash_threshold": 30,  # 强制空仓阈值
+}
+
+# 无止损模式下的策略参数（原始通道突破）
+CHANNEL_BREAKOUT_NO_STOP = {
+    "top_n": 3,
+    "entry_threshold": 55,
+    "exit_threshold": 30,
+    "force_cash_threshold": 35,
+    "weekday": 2,  # 周三
+}
+
+# ============================================================
 # 通道突破策略完整参数 (CHANNEL_BREAKOUT_CONFIG)
 # ============================================================
 CHANNEL_BREAKOUT_CONFIG = {

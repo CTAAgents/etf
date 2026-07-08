@@ -199,11 +199,15 @@ def simulate_portfolio(all_data: dict, wednesdays: list) -> dict:
             week_return += alloc * sector_return
 
         # 记录
+        current_codes = {s: all_data.get(s, {}).get('code', '') for s in current_holdings}
+        new_codes = {s: all_data.get(s, {}).get('code', '') for s in plan.get('final_positions', {})}
         weekly_returns.append({
             'week': date_str,
             'return': round(week_return, 6),
             'positions': dict(current_holdings),
+            'position_codes': current_codes,
             'new_plan': {s: round(p, 4) for s, p in plan.get('final_positions', {}).items()},
+            'new_plan_codes': new_codes,
         })
 
         # 更新净值
@@ -212,9 +216,11 @@ def simulate_portfolio(all_data: dict, wednesdays: list) -> dict:
 
         # 记录交易
         for a in plan['actions']:
+            sector_code = all_data.get(a['sector'], {}).get('code', '')
             all_trades.append({
                 'week': date_str,
                 'sector': a['sector'],
+                'etf_code': sector_code,
                 'action': a['action'],
                 'old_pct': round(a.get('old_pct', 0), 4),
                 'new_pct': round(a.get('new_pct', 0), 4),
@@ -321,6 +327,120 @@ def compute_metrics(result: dict) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════
+# HTML 报告
+# ══════════════════════════════════════════════════════════════
+
+def generate_html_report(result: dict, metrics: dict, report_date: str, out_path: str):
+    """生成完整的回测 HTML 报告，包含 ETF 代码。"""
+    trades = result.get('trades', [])
+    equity = result.get('equity_curve', [1.0])
+    weekly = result.get('weekly_returns', [])
+
+    # 交易表格行
+    trade_rows = ''
+    for t in trades[-50:]:  # 最近50笔
+        etf_code = t.get('etf_code', '')
+        trade_rows += f'''<tr>
+            <td>{t['week']}</td>
+            <td>{t['sector']}</td>
+            <td><code>{etf_code}</code></td>
+            <td class="action-{t['action']}">{t['action']}</td>
+            <td>{t.get('old_pct', 0):.1%}</td>
+            <td>{t.get('new_pct', 0):.1%}</td>
+            <td style="font-size:12px;color:#888">{t.get('reason', '')}</td>
+        </tr>'''
+
+    # 持仓记录表格
+    position_rows = ''
+    for w in weekly[-20:]:  # 最近20周
+        pos_items = []
+        for s, a in w.get('positions', {}).items():
+            code = w.get('position_codes', {}).get(s, '')
+            pos_items.append(f'{s}<code style="font-size:11px">({code})</code> {a:.0%}')
+        position_rows += f'''<tr>
+            <td>{w['week']}</td>
+            <td>{w['return']:+.3%}</td>
+            <td>{'<br>'.join(pos_items) if pos_items else '<span style="color:#999">空仓</span>'}</td>
+        </tr>'''
+
+    html = f'''<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>ETF周频调仓策略回测报告</title>
+<style>
+body{{font-family:"Microsoft YaHei",sans-serif;max-width:1200px;margin:20px auto;padding:0 20px;background:#f5f5f5}}
+.card{{background:#fff;border-radius:8px;padding:24px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,0.1)}}
+h1{{color:#1a1a2e;margin:0}} h2{{color:#16213e;border-bottom:2px solid #e94560;padding-bottom:8px}}
+table{{width:100%;border-collapse:collapse;font-size:14px}}
+th,td{{padding:8px 12px;text-align:left;border-bottom:1px solid #eee}}
+th{{background:#1a1a2e;color:#fff;font-weight:600}}
+tr:hover{{background:#fafafa}}
+.metrics-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}}
+.metric{{text-align:center;padding:12px;background:#f8f9fa;border-radius:6px}}
+.metric .value{{font-size:24px;font-weight:bold;margin:4px 0}}
+.metric .label{{font-size:12px;color:#666}}
+.positive{{color:#e94560}} .negative{{color:#27ae60}}
+.action-BUY{{color:#e94560;font-weight:bold}} .action-SELL{{color:#27ae60;font-weight:bold}} .action-HOLD{{color:#888}}
+code{{background:#e8e8e8;padding:1px 6px;border-radius:3px;font-size:13px}}
+.summary{{color:#666;font-size:13px;margin-top:16px}}
+</style>
+</head>
+<body>
+<h1>ETF周频调仓策略回测报告</h1>
+<p class="summary">回测周期: {metrics['period']} | 生成时间: {report_date}</p>
+
+<div class="card">
+<h2>绩效指标</h2>
+<div class="metrics-grid">
+<div class="metric"><div class="label">累计收益</div><div class="value {'positive' if metrics['total_return'] > 0 else 'negative'}">{metrics['total_return']:+.2f}%</div></div>
+<div class="metric"><div class="label">年化收益</div><div class="value {'positive' if metrics['annual_return'] > 0 else 'negative'}">{metrics['annual_return']:+.2f}%</div></div>
+<div class="metric"><div class="label">夏普比率</div><div class="value">{metrics['sharpe_ratio']:.3f}</div></div>
+<div class="metric"><div class="label">卡玛比率</div><div class="value">{metrics['calmar_ratio']:.3f}</div></div>
+<div class="metric"><div class="label">最大回撤</div><div class="value negative">{metrics['max_drawdown']:.2f}%</div></div>
+<div class="metric"><div class="label">年化波动</div><div class="value">{metrics['annual_volatility']:.2f}%</div></div>
+<div class="metric"><div class="label">周胜率</div><div class="value">{metrics['win_rate']:.1f}%</div></div>
+<div class="metric"><div class="label">盈亏比</div><div class="value">{metrics['profit_factor']:.2f}</div></div>
+</div>
+<div class="metrics-grid" style="margin-top:12px">
+<div class="metric"><div class="label">交易次数</div><div class="value">{metrics['n_trades']}</div></div>
+<div class="metric"><div class="label">BUY/SELL/HOLD</div><div class="value" style="font-size:16px">{metrics['n_buys']}/{metrics['n_sells']}/{metrics['n_holds']}</div></div>
+<div class="metric"><div class="label">平均盈利周</div><div class="value positive" style="font-size:16px">{metrics['avg_win_weekly']:+.2f}%</div></div>
+<div class="metric"><div class="label">平均亏损周</div><div class="value negative" style="font-size:16px">{metrics['avg_loss_weekly']:+.2f}%</div></div>
+</div>
+</div>
+
+<div class="card">
+<h2>调仓记录（最近50笔）</h2>
+<table>
+<tr><th>日期</th><th>行业</th><th>ETF代码</th><th>动作</th><th>旧仓位</th><th>新仓位</th><th>原因</th></tr>
+{trade_rows or '<tr><td colspan="7" style="color:#999">无交易记录</td></tr>'}
+</table>
+</div>
+
+<div class="card">
+<h2>周持仓变化（最近20周）</h2>
+<table>
+<tr><th>日期</th><th>周收益</th><th>持仓（ETF代码）</th></tr>
+{position_rows or '<tr><td colspan="3" style="color:#999">无持仓记录</td></tr>'}
+</table>
+</div>
+
+<div class="card">
+<h2>净值曲线</h2>
+<div style="color:#666;font-size:13px">起始净值: {equity[0]:.3f} → 最终净值: {equity[-1]:.3f}</div>
+<pre style="background:#1a1a2e;color:#0f0;padding:12px;border-radius:4px;overflow:auto;max-height:300px">
+{chr(10).join(f'{i:4d}: {v:.4f}  {chr(9608)*max(1,int(v*40))}' for i, v in enumerate(equity) if i % 10 == 0)}
+</pre>
+</div>
+</body>
+</html>'''
+
+    with open(out_path, 'w', encoding='utf-8') as f:
+        f.write(html)
+
+
+# ══════════════════════════════════════════════════════════════
 # 主流程
 # ══════════════════════════════════════════════════════════════
 
@@ -383,7 +503,7 @@ def main():
         'metrics': metrics,
         'equity_curve': result['equity_curve'],
         'weekly_returns': result['weekly_returns'],
-        'trades_count': len(result['trades']),
+        'trades': result['trades'],
     }
 
     out_path = os.path.join(BACKTEST_DIR, 'results',
@@ -391,6 +511,13 @@ def main():
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with open(out_path, 'w', encoding='utf-8') as f:
         json.dump(output, f, ensure_ascii=False, indent=2, default=str)
+    print(f'\n  结果已保存: {out_path}')
+
+    # 生成 HTML 报告
+    html_path = os.path.join(BACKTEST_DIR, 'results',
+                             f'backtest_rebalance_{date.today().strftime("%Y%m%d_%H%M%S")}.html')
+    generate_html_report(result, metrics, str(date.today()), html_path)
+    print(f'  HTML报告: {html_path}')
     print(f'\n📊 回测结果已保存: {out_path}')
 
 
