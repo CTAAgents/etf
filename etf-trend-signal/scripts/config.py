@@ -238,7 +238,7 @@ TDX_CONFIG = {
     'benchmark_code': '000300.CSI',
     'period': '1d',
     'days_history': 180,
-    'dividend_type': 'qfq',
+    'dividend_type': 'front',
     'priority_chain': ['tdx_local'],
 }
 

@@ -51,6 +51,7 @@ def simulate(cached, all_data, dates, weekday):
     rebal = [(ds, idx, i) for i, (ds, idx, w) in enumerate(dates) if i >= 60 and w == weekday]
 
     holdings = {}
+    entry_prices = {}  # {sector: float} — 每个仓位实际入场时的次日开盘价
     equity = [1.0]
     rets = []
 
@@ -64,10 +65,11 @@ def simulate(cached, all_data, dates, weekday):
         max_bull = max((s['t'] for s in bull), default=0)
 
         if max_bull < FC:
-            r = calc_ret(holdings, all_data, data_idx, rebal, ri)
+            r = calc_ret(holdings, entry_prices, all_data, data_idx)
             rets.append(r)
             equity.append(equity[-1] * (1 + r))
             holdings = {}
+            entry_prices = {}
             continue
 
         pool = []
@@ -109,35 +111,52 @@ def simulate(cached, all_data, dates, weekday):
             last = list(pos.keys())[-1]
             pos[last] = round(pos[last] + (1.0 - tot), 4)
 
-        r = calc_ret(holdings, all_data, data_idx, rebal, ri)
+        # 旧仓位收益（入场价 → 当日次日开盘退出价）
+        r = calc_ret(holdings, entry_prices, all_data, data_idx)
         rets.append(r)
         equity.append(equity[-1] * (1 + r))
+
+        # 记录新仓位的入场价（调仓日次日开盘价）
+        new_entry_prices = {}
+        for s in pos:
+            k = all_data.get(s, {}).get('klines', [])
+            if k and data_idx + 1 < len(k):
+                ep = float(k[data_idx + 1].get('open', 0))
+                if ep > 0:
+                    new_entry_prices[s] = ep
+
         holdings = pos
+        entry_prices = new_entry_prices
 
     return metrics(rets, equity)
 
 
-def calc_ret(holdings, all_data, data_idx, rebal, ri):
+def calc_ret(holdings, entry_prices, all_data, data_idx):
+    """计算旧持仓从实际入场价到当前调仓日次日开盘的收益。
+    
+    参数:
+        holdings: {sector: alloc_pct} — 旧持仓
+        entry_prices: {sector: float} — 每个仓位的实际入场价（上次调仓日次日开盘）
+        all_data: 各行业K线数据
+        data_idx: 当前调仓日的K线索引
+    """
     if not holdings:
         return 0.0
-    next_idx = rebal[ri+1][1] if ri+1 < len(rebal) else data_idx + 5
     ret = 0.0
     for sec, alloc in holdings.items():
+        bp = entry_prices.get(sec, 0)  # 实际入场价
+        if bp == 0:
+            continue
         k = all_data.get(sec, {}).get('klines', [])
         if not k:
             continue
-        bi = data_idx + 1
-        if bi >= len(k):
-            continue
-        bp = float(k[bi].get('open', 0))
-        if bp == 0:
-            continue
-        si = next_idx + 1
+        # 退出价 = 当前调仓日次日开盘
+        si = data_idx + 1
         if si >= len(k):
-            si = len(k) - 1
+            continue
         sp = float(k[si].get('open', 0))
         if sp == 0:
-            sp = bp
+            continue
         ret += alloc * (sp - bp) / bp
     return ret
 

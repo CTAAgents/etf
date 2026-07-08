@@ -91,13 +91,6 @@ def thursday_open(klines: list, wed_idx: int) -> float:
     return float(klines[wed_idx].get('close', 0))  # fallback
 
 
-def next_thursday_open(klines: list, wed_idx: int) -> float:
-    """获取下一周的周四开盘价（用于计算退出价格）。"""
-    for j in range(wed_idx + 6, min(wed_idx + 10, len(klines))):
-        return float(klines[j].get('open', 0))
-    return float(klines[wed_idx].get('close', 0))
-
-
 # ══════════════════════════════════════════════════════════════
 # 评分管线（单时间点）
 # ══════════════════════════════════════════════════════════════
@@ -169,6 +162,8 @@ def simulate_portfolio(all_data: dict, wednesdays: list) -> dict:
 
     # 当前持仓 {sector: allocation_pct}
     current_holdings = {}
+    # 入场价追踪 {sector: float} — 记录每个仓位实际入场时的次日开盘价
+    entry_prices = {}
     equity_curve = [1.0]
     weekly_returns = []
     all_trades = []
@@ -190,38 +185,17 @@ def simulate_portfolio(all_data: dict, wednesdays: list) -> dict:
         # Step 2: 调仓计算
         plan = compute_rebalance(scan_result, current_holdings)
 
-        # Step 3: 计算本周收益（使用前一周的持仓 + 本周的价格变化）
-
-        # 获取本周的买入价格（周四开盘）
-        buy_prices = {}
-        for sector in current_holdings.keys():
-            klines = all_data.get(sector, {}).get('klines', [])
-            bp = thursday_open(klines, data_idx)
-            buy_prices[sector] = bp
-
-        # 获取下一周的卖出价格（下周四开盘）
-        sell_prices = {}
-        for sector in plan.get('final_positions', {}).keys():
-            klines = all_data.get(sector, {}).get('klines', [])
-            sp = next_thursday_open(klines, data_idx)
-            sell_prices[sector] = sp
-
-        # 计算本周收益率（基于持有仓位）
+        # Step 3: 计算本周收益（旧仓位：实际入场价 → 本周四开盘退出价）
         week_return = 0.0
         for sector, alloc in current_holdings.items():
-            bp = buy_prices.get(sector, 0)
+            bp = entry_prices.get(sector, 0)  # 上周四开盘买入价
             if bp == 0:
                 continue
-            # 用下周开盘价模拟本周结束时的价格
-            sp = sell_prices.get(sector, 0) or buy_prices.get(sector, 0)
-            # 如果该行业被清仓了，用本周的卖出价
-            if sector in [a['sector'] for a in plan['actions'] if a['action'] == 'SELL']:
-                sell_idx = data_idx + 1  # 周四开盘卖出
-                sell_klines = all_data.get(sector, {}).get('klines', [])
-                if sell_idx < len(sell_klines):
-                    sp = float(sell_klines[sell_idx].get('open', bp))
-
-            sector_return = (sp - bp) / bp if bp > 0 else 0
+            klines = all_data.get(sector, {}).get('klines', [])
+            sp = thursday_open(klines, data_idx)  # 本周四开盘 = 退出价
+            if sp == 0:
+                continue
+            sector_return = (sp - bp) / bp
             week_return += alloc * sector_return
 
         # 记录
@@ -246,6 +220,14 @@ def simulate_portfolio(all_data: dict, wednesdays: list) -> dict:
                 'new_pct': round(a.get('new_pct', 0), 4),
                 'reason': a['reason'],
             })
+
+        # 记录新仓位的入场价（本周四开盘）
+        entry_prices = {}
+        for sector in plan.get('final_positions', {}).keys():
+            klines = all_data.get(sector, {}).get('klines', [])
+            ep = thursday_open(klines, data_idx)
+            if ep > 0:
+                entry_prices[sector] = ep
 
         # 更新持仓
         current_holdings = plan.get('final_positions', {})

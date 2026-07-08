@@ -185,6 +185,7 @@ def simulate(cached_scores, all_data, all_dates, rebalance_dates, top_n):
     rebalance_dates: [(date_str, data_idx, cache_idx), ...]
     """
     current_holdings = {}
+    entry_prices = {}  # {sector: float} — 每个仓位实际入场时的次日开盘价
     equity_curve = [1.0]
     returns = []
 
@@ -203,10 +204,11 @@ def simulate(cached_scores, all_data, all_dates, rebalance_dates, top_n):
         # force_cash
         max_bull = max((s['total'] for s in bull_sorted), default=0)
         if max_bull < FC_TH:
-            week_ret = _calc_return(current_holdings, all_data, data_idx, rebalance_dates, r_idx)
+            week_ret = _calc_return(current_holdings, entry_prices, all_data, data_idx)
             returns.append(week_ret)
             equity_curve.append(equity_curve[-1] * (1 + week_ret))
             current_holdings = {}
+            entry_prices = {}
             continue
 
         # 候选池
@@ -255,48 +257,48 @@ def simulate(cached_scores, all_data, all_dates, rebalance_dates, top_n):
             last = list(new_positions.keys())[-1]
             new_positions[last] = round(new_positions[last] + (1.0 - total), 4)
 
-        # 收益
-        week_ret = _calc_return(current_holdings, all_data, data_idx, rebalance_dates, r_idx)
+        # 收益（旧仓位：实际入场价 → 当前调仓日次日开盘退出）
+        week_ret = _calc_return(current_holdings, entry_prices, all_data, data_idx)
         returns.append(week_ret)
         equity_curve.append(equity_curve[-1] * (1 + week_ret))
 
+        # 记录新仓位的入场价（当前调仓日次日开盘）
+        new_entry_prices = {}
+        for s in new_positions:
+            klines = all_data.get(s, {}).get('klines', [])
+            if klines and data_idx + 1 < len(klines):
+                ep = float(klines[data_idx + 1].get('open', 0))
+                if ep > 0:
+                    new_entry_prices[s] = ep
+
         current_holdings = new_positions
+        entry_prices = new_entry_prices
 
     return _calc_metrics(returns, equity_curve)
 
 
-def _calc_return(holdings, all_data, data_idx, rebalance_dates, r_idx):
-    """计算持仓区间收益。"""
+def _calc_return(holdings, entry_prices, all_data, data_idx):
+    """计算旧持仓从实际入场价到当前调仓日次日开盘的收益。"""
     if not holdings:
         return 0.0
 
-    # 下一次调仓的日期索引
-    if r_idx + 1 < len(rebalance_dates):
-        next_idx = rebalance_dates[r_idx + 1][1]
-    else:
-        next_idx = data_idx + 5  # 最后一周默认5天
-
     week_ret = 0.0
     for sector, alloc in holdings.items():
+        bp = entry_prices.get(sector, 0)  # 上次调仓日次日开盘 = 实际入场价
+        if bp == 0:
+            continue
+
         klines = all_data.get(sector, {}).get('klines', [])
         if not klines:
             continue
 
-        # 买入：次日开盘
-        buy_idx = data_idx + 1
-        if buy_idx >= len(klines):
-            continue
-        bp = float(klines[buy_idx].get('open', 0))
-        if bp == 0:
-            continue
-
-        # 卖出：下次调仓次日开盘
-        sell_idx = next_idx + 1
+        # 退出价 = 当前调仓日次日开盘
+        sell_idx = data_idx + 1
         if sell_idx >= len(klines):
-            sell_idx = len(klines) - 1
+            continue
         sp = float(klines[sell_idx].get('open', 0))
         if sp == 0:
-            sp = bp
+            continue
 
         sector_ret = (sp - bp) / bp
         week_ret += alloc * sector_ret

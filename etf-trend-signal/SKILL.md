@@ -1,6 +1,6 @@
-# 行业ETF趋势信号发现系统 v2.3.0
+# 行业ETF趋势信号发现系统 v2.3.1
 
-**etf-trend-signal** — 基于通道突破策略的行业ETF信号评分系统。
+**etf-trend-signal** — 基于趋势跟踪的行业轮动ETF周频调仓策略技能。
 数据源：**腾讯自选股 westock-mcp**（默认，前复权日线）| 通达信TQ-Local（--source tdx）。
 
 ## 📌 定位
@@ -351,6 +351,14 @@ scripts/
 | Z分数范围 | 方向感知Z-score -3~+3 |
 
 ## 📝 版本历史
+
+### v2.3.1 (2026-07-08)
+**核心改动：回测收益核算修复 — 消除收益偏移一周的bug**
+
+1. **根因**：5个回测文件的收益核算均使用"当前周次日开盘当买入价"，而非"上周实际入场价"，导致收益数据向前偏移一整周
+2. **修复方案**：引入 `entry_prices` 字典追踪每个仓位实际入场价（上次调仓日次日开盘），收益 = (当前调仓次日开盘 − 实际入场价) / 实际入场价
+3. **修复文件**：`backtest_rebalance.py` / `test_weekday.py` / `optimize_rebalance_params.py` / `optimize_frequency.py` / `optimize_full_5d.py`
+4. **副作用清理**：删除 `backtest_rebalance.py` 中不再使用的 `next_thursday_open()` 函数
 
 ### v2.3.0 (2026-07-08)
 **核心改动：数据源架构重构 — 默认腾讯自选股 + 通达信前复权修复**

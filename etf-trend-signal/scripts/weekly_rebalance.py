@@ -396,7 +396,8 @@ def _print_rebalance_plan(plan: dict):
           f'HOLD{s["keep_sectors"]} SELL{s["sell_sectors"]} BUY{s["new_buys"]}')
 
 
-def _run_calc_only(holdings_path: str, output_dir: str, dry_run: bool):
+def _run_calc_only(holdings_path: str, output_dir: str, dry_run: bool,
+                    source: str = 'westock', cache_path: str = None):
     """周三收盘后模式：计算信号+保存计划，不执行交易。"""
     print(f'{"="*60}')
     print(f'ETF周频调仓 — 周三收盘信号计算   {date.today()}')
@@ -409,7 +410,7 @@ def _run_calc_only(holdings_path: str, output_dir: str, dry_run: bool):
         print(f'    {s}: {p:.1%}')
 
     print(f'\n[2] 全行业扫描...')
-    scan = run_scan()
+    scan = run_scan(source=source, cache_path=cache_path)
 
     print(f'\n[3] 调仓计算...')
     plan = compute_rebalance(scan, current)
@@ -430,8 +431,8 @@ def _run_calc_only(holdings_path: str, output_dir: str, dry_run: bool):
                               date.today().strftime('%Y-%m-%d'))
     pipeline_result = {
         'date': str(date.today()),
-        'strategy': 'etf-trend-signal v2.1 通道突破',
-        'data_source': '通达信TQ-Local',
+        'strategy': 'etf-trend-signal v2.3 通道突破',
+        'data_source': '腾讯自选股 westock-mcp' if source == 'westock' else '通达信TQ-Local',
         'top_signals': [
             {'sector': r['sector'], 'total': r['total'], 'grade': r['grade']}
             for r in scan.get('all_ranked', [])[:5]
@@ -538,6 +539,9 @@ def main():
     parser.add_argument('--holdings', '-H', help='持仓JSON路径')
     parser.add_argument('--output', '-o', help='输出目录')
     parser.add_argument('--dry-run', action='store_true', help='仅预览')
+    parser.add_argument('--source', '-s', default='westock', choices=['westock', 'tdx'],
+                       help='数据源（默认westock，自动化建议tdx）')
+    parser.add_argument('--cache', help='westock缓存文件路径')
 
     args = parser.parse_args()
 
@@ -551,14 +555,15 @@ def main():
 
     # ── 模式分发 ──
     if args.calc_only:
-        _run_calc_only(holdings_path, output_dir, args.dry_run)
+        _run_calc_only(holdings_path, output_dir, args.dry_run, args.source, args.cache)
     elif args.execute:
         _run_execute(args.dry_run)
     else:
         # ── 完整模式：计算 + 执行（周四盘前使用）──
+        src_label = '腾讯自选股 westock-mcp' if args.source == 'westock' else '通达信TQ-Local'
         print(f'{"="*60}')
         print(f'ETF周频调仓 — {date.today()}')
-        print(f'数据源: 通达信TQ-Local | 策略: 通道突破 v2.1')
+        print(f'数据源: {src_label} | 策略: 通道突破 v2.3')
         print(f'{"="*60}')
 
         current = load_holdings(holdings_path)
@@ -567,7 +572,7 @@ def main():
             print(f'    {s}: {p:.1%}')
 
         print(f'\n[2] 全行业扫描...')
-        scan = run_scan()
+        scan = run_scan(source=args.source, cache_path=args.cache)
 
         print(f'\n[3] 调仓计算...')
         plan = compute_rebalance(scan, current)

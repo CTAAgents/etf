@@ -7,7 +7,7 @@ A股 ETF 量化交易 WorkBuddy 技能集。
 | 技能 | 版本 | 说明 | 核心指标 |
 |:--|:--:|:--|:--|
 | [a-share-etf-momentum](./a-share-etf-momentum/) | 1.7.0 | A股行业ETF双动量轮动策略 — 绝对动量择时+相对动量轮动+估值分位刹车。通过沪深300ETF判断市场趋势，多头轮动持有最强行业ETF，熊市切换货币ETF。支持完整回测与实... | 年化44.30%，夏普1.275 |
-| [etf-trend-signal](./etf-trend-signal/) | 2.3.0 | 行业ETF通道突破策略 — 唐奇安通道+布林带+成交量评分，31行业轮动 | 31行业扫描，周频调仓，完整执行管道 |
+| [etf-trend-signal](./etf-trend-signal/) | 2.3.1 | 行业ETF通道突破策略 — 唐奇安通道+布林带+成交量评分，31行业轮动 | 31行业扫描，周频调仓，完整执行管道 |
 | [quantitative-momentum-stock-selection](./quantitative-momentum-stock-selection/) | 1.1.0 | 量化动量选股系统 v1.1.0 (A股优化版) — 多维度动量打分体系识别强势股票，构建动量投资组合。核心思想：买入赢家股而非成长型投资。支持全市场扫描、动量信号筛选、投资组... | 全市场扫描，T+1适配，北向资金 |
 
 ## 快速开始

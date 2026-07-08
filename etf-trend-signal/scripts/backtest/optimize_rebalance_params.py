@@ -140,6 +140,7 @@ def simulate_with_params(cached_scores, wednesdays, all_data,
                           top_n, entry_th, exit_th, force_cash_th):
     """用指定参数运行完整回测，返回绩效指标。"""
     current_holdings = {}
+    entry_prices = {}  # {sector: float} — 每个仓位实际入场时的次日开盘价
     equity_curve = [1.0]
     returns = []
 
@@ -155,11 +156,12 @@ def simulate_with_params(cached_scores, wednesdays, all_data,
         # force_cash 检测
         max_bull = max((s['total'] for s in bull_sorted), default=0)
         if max_bull < force_cash_th:
-            # 强制空仓
-            week_return = _calc_week_return(current_holdings, all_data, data_idx)
+            # 强制空仓 — 先结算旧仓位收益再清仓
+            week_return = _calc_week_return(current_holdings, entry_prices, all_data, data_idx)
             returns.append(week_return)
             equity_curve.append(equity_curve[-1] * (1 + week_return))
             current_holdings = {}
+            entry_prices = {}
             continue
 
         # 候选池
@@ -208,45 +210,51 @@ def simulate_with_params(cached_scores, wednesdays, all_data,
             last = list(new_positions.keys())[-1]
             new_positions[last] = round(new_positions[last] + (1.0 - total), 4)
 
-        # ---- 收益计算 ----
-        week_return = _calc_week_return(current_holdings, all_data, data_idx)
+        # ---- 收益计算（旧仓位：实际入场价 → 本周四开盘退出） ----
+        week_return = _calc_week_return(current_holdings, entry_prices, all_data, data_idx)
         returns.append(week_return)
         equity_curve.append(equity_curve[-1] * (1 + week_return))
 
+        # 记录新仓位的入场价（本周四开盘）
+        new_entry_prices = {}
+        for s in new_positions:
+            klines = all_data.get(s, {}).get('klines', [])
+            if klines and data_idx + 1 < len(klines):
+                ep = float(klines[data_idx + 1].get('open', 0))
+                if ep > 0:
+                    new_entry_prices[s] = ep
+
         # 更新持仓
         current_holdings = new_positions
+        entry_prices = new_entry_prices
 
     return _calc_metrics(returns, equity_curve)
 
 
-def _calc_week_return(holdings, all_data, data_idx):
-    """计算本周持仓收益。"""
+def _calc_week_return(holdings, entry_prices, all_data, data_idx):
+    """计算旧持仓从实际入场价到当前调仓日次日开盘的收益。"""
     if not holdings:
         return 0.0
 
     week_return = 0.0
     for sector, alloc in holdings.items():
+        bp = entry_prices.get(sector, 0)  # 上次调仓日次日开盘 = 实际入场价
+        if bp == 0:
+            continue
+
         klines = all_data.get(sector, {}).get('klines', [])
         if not klines:
             continue
 
-        # 本周四开盘（买入价）
-        buy_idx = data_idx + 1
-        if buy_idx >= len(klines):
-            continue
-        buy_price = float(klines[buy_idx].get('open', 0))
-        if buy_price == 0:
-            continue
-
-        # 下周四开盘（卖出价）
-        sell_idx = data_idx + 6
+        # 退出价 = 当前调仓日次日开盘
+        sell_idx = data_idx + 1
         if sell_idx >= len(klines):
-            sell_idx = len(klines) - 1
+            continue
         sell_price = float(klines[sell_idx].get('open', 0))
         if sell_price == 0:
-            sell_price = buy_price
+            continue
 
-        sector_return = (sell_price - buy_price) / buy_price
+        sector_return = (sell_price - bp) / bp
         week_return += alloc * sector_return
 
     return week_return
