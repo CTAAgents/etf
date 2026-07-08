@@ -45,6 +45,7 @@ except ImportError:
 TOP_N = 5                  # 选前N个行业
 SCORE_ENTRY_THRESHOLD = 50  # 信号总分>50才进入候选池
 SCORE_EXIT_THRESHOLD = 40   # 掉出TOP5+总分<40才清仓
+FORCE_CASH_THRESHOLD = 40   # 所有多头总分都<40 → 强制空仓
 
 # 行业→ETF代码快速查找
 SECTOR_TO_ETF = {s[0]: s[2] for s in SECTOR_ETF_MAPPING}
@@ -89,6 +90,48 @@ def compute_rebalance(scan_results: dict,
         key=lambda x: x.get('total', 0),
         reverse=True
     )
+
+    # ── Step 1.5: 强制空仓检测 ──
+    # 如果所有多头信号的最高分都 < FORCE_CASH_THRESHOLD(40)，
+    # 说明全市场信号极弱，应清空所有持仓，不做任何买入
+    max_bull_score = max((r.get('total', 0) for r in bull_sorted), default=0)
+    force_cash = max_bull_score < FORCE_CASH_THRESHOLD
+
+    if force_cash:
+        # 强制空仓：卖出所有持仓，不买入
+        actions = []
+        for sector, old_pct in current_holdings.items():
+            if old_pct > 0:
+                actions.append({
+                    'sector': sector,
+                    'etf_code': SECTOR_TO_ETF.get(sector, ''),
+                    'action': 'SELL',
+                    'reason': f'强制空仓：全市场最高分{max_bull_score:.0f}<{FORCE_CASH_THRESHOLD}，所有持仓清仓',
+                    'old_pct': old_pct,
+                    'new_pct': 0.0,
+                })
+
+        return {
+            'date': today_str,
+            'force_cash': True,
+            'force_cash_reason': f'全市场所有多头信号总分<{FORCE_CASH_THRESHOLD}（最高={max_bull_score:.0f}），强制空仓',
+            'target_pool': [],
+            'actions': actions,
+            'final_positions': {},
+            'summary': {
+                'date': today_str,
+                'total_sectors_scanned': len(bull_sorted),
+                'target_pool_size': 0,
+                'held_sectors': len(current_holdings),
+                'keep_sectors': 0,
+                'sell_sectors': len(actions),
+                'new_buys': 0,
+                'final_positions_count': 0,
+                'total_allocation': 0.0,
+                'force_cash': True,
+                'max_bull_score': max_bull_score,
+            },
+        }
 
     # ── Step 2: 构建候选池（TOP5 且 总分>50）──
     target_pool = []
@@ -308,8 +351,14 @@ def main():
     print(f'📋 调仓方案')
     print(f'{"="*60}')
 
+    # 强制空仓检测
+    is_force_cash = plan.get('force_cash', False)
+    if is_force_cash:
+        max_s = plan['summary'].get('max_bull_score', 0)
+        print(f'\n🔴 强制空仓：全市场所有多头信号总分<{FORCE_CASH_THRESHOLD}（最高={max_s:.0f}）')
+        print(f'   理由: {plan.get("force_cash_reason", "")}')
     # 候选池
-    if plan['target_pool']:
+    elif plan['target_pool']:
         print(f'\n🎯 候选池 (TOP{TOP_N} 且 总分>{SCORE_ENTRY_THRESHOLD}):')
         print(f'  {"#":>3} {"行业":<8} {"总分":>6} {"代码":>10} {"价格":>8} {"涨跌":>6}')
         print(f'  {"---":>3} {"------":<8} {"------":>6} {"----------":>10} {"--------":>8} {"------":>6}')
@@ -322,6 +371,8 @@ def main():
 
     # 操作明细
     print(f'\n📌 操作明细:')
+    if not plan['actions']:
+        print(f'  无操作')
     for a in plan['actions']:
         act = a['action']
         sec = a['sector']
@@ -342,16 +393,23 @@ def main():
         print(f'  {"------":<8} {"------":>8}')
         for s, p in sorted(plan['final_positions'].items(), key=lambda x: -x[1]):
             print(f'  {s:<8} {p:.1%}')
+    elif is_force_cash:
+        print(f'\n✅ 全市场信号极弱，强制空仓，不持有任何行业')
     else:
         print(f'\n⚠️ 最终仓位为空')
 
     # 统计
     s = plan['summary']
-    print(f'\n📈 统计: 扫描{s["total_sectors_scanned"]}行业 | '
-          f'候选池{s["target_pool_size"]}个 | '
-          f'HOLD{s["keep_sectors"]}个 | '
-          f'SELL{s["sell_sectors"]}个 | '
-          f'BUY{s["new_buys"]}个')
+    if is_force_cash:
+        print(f'\n📈 统计: 扫描{s["total_sectors_scanned"]}行业 | '
+              f'强制空仓(最高分={s.get("max_bull_score",0):.0f} < {FORCE_CASH_THRESHOLD}) | '
+              f'SELL{s["sell_sectors"]}个旧持仓')
+    else:
+        print(f'\n📈 统计: 扫描{s["total_sectors_scanned"]}行业 | '
+              f'候选池{s["target_pool_size"]}个 | '
+              f'HOLD{s["keep_sectors"]}个 | '
+              f'SELL{s["sell_sectors"]}个 | '
+              f'BUY{s["new_buys"]}个')
 
     # Step 5: 保存
     os.makedirs(output_dir, exist_ok=True)
