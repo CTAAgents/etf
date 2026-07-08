@@ -42,10 +42,10 @@ fi
 
 git commit -m "$MSG"
 
-# 3. 推送
+# 3. 推送到 GitHub（使用 cta_deploy 密钥）
 echo ""
 echo "[3] 推送到 GitHub..."
-git push origin master
+GIT_SSH_COMMAND="ssh -i ~/.ssh/cta_deploy_ed25519" git push origin master
 
 echo ""
 echo "============================================"
