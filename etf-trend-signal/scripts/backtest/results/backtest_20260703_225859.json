@@ -1,0 +1,49 @@
+{
+  "performance": {
+    "by_grade": {
+      "STRONG": {
+        "count": 0
+      },
+      "WATCH": {
+        "count": 8,
+        "win_rate": 25.0,
+        "avg_return": -1.88,
+        "profit_factor": 0.29,
+        "max_drawdown": 18.61
+      },
+      "WEAK": {
+        "count": 673,
+        "win_rate": 45.3,
+        "avg_return": 0.34,
+        "profit_factor": 1.1,
+        "max_drawdown": 523.71
+      },
+      "NOISE": {
+        "count": 342,
+        "win_rate": 39.2,
+        "avg_return": -0.69,
+        "profit_factor": 0.81,
+        "max_drawdown": 834.66
+      }
+    },
+    "by_direction": {
+      "BUY": {
+        "count": 489,
+        "win_rate": 39.7,
+        "avg_return": -0.65
+      },
+      "SELL": {
+        "count": 534,
+        "win_rate": 46.3,
+        "avg_return": 0.56
+      }
+    },
+    "summary": {
+      "total_signals": 1023,
+      "forward_days": 5,
+      "avg_signal_per_etf": 33.0
+    }
+  },
+  "total_signals": 1178,
+  "mode": "eval"
+}

@@ -296,8 +296,9 @@ def _compute_indicators_numpy(klines, symbol: str = None) -> dict:
     pdm = np.where((up_ > dn_) & (up_ > 0), up_, 0.0)
     mdm = np.where((dn_ > up_) & (dn_ > 0), dn_, 0.0)
     at14 = a14
-    pdi = 100 * wilder_rma(pdm, 14) / at14
-    mdi = 100 * wilder_rma(mdm, 14) / at14
+    with np.errstate(divide='ignore', invalid='ignore'):
+        pdi = np.where(at14 != 0, 100 * wilder_rma(pdm, 14) / at14, 0.0)
+        mdi = np.where(at14 != 0, 100 * wilder_rma(mdm, 14) / at14, 0.0)
     dx = 100 * np.abs(pdi - mdi) / (pdi + mdi + 1e-10)
     adx_ = wilder_rma(dx, 14)
     tech['DMI_PDI'] = float(pdi[-1]); tech['DMI_MDI'] = float(mdi[-1])
@@ -348,7 +349,9 @@ def _compute_indicators_numpy(klines, symbol: str = None) -> dict:
     # ---- Vortex (14) ----
     vm_p = np.abs(h - np.roll(l, 1)); vm_m = np.abs(l - np.roll(h, 1))
     tr_v = atr_fn(14)
-    vp = wilder_rma(vm_p, 14) / tr_v; vm = wilder_rma(vm_m, 14) / tr_v
+    with np.errstate(divide='ignore', invalid='ignore'):
+        vp = np.where(tr_v != 0, wilder_rma(vm_p, 14) / tr_v, 0.0)
+        vm = np.where(tr_v != 0, wilder_rma(vm_m, 14) / tr_v, 0.0)
     tech['VI_PLUS'] = float(vp[-1]); tech['VI_MINUS'] = float(vm[-1])
 
     # ---- HMA ----

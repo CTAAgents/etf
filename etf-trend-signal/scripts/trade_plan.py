@@ -1,46 +1,38 @@
 # -*- coding: utf-8 -*-
-"""ETF交易方案生成（T+1适配 + 行业轮动切换）。
+"""ETF交易方案生成（T+1适配 + 行业轮动切换）— 通道突破策略 v2.0。
 
-期货→ETF关键差异：
-1. T+1（期货T+0）→ 止损不能日内硬砍，用"跌破关键均线减仓 + 尾盘决断"
+关键差异（期货→ETF）：
+1. T+1 → 止损不能日内硬砍，用"跌破关键均线减仓 + 尾盘决断"
 2. 无杠杆（除非两融）→ 仓位公式基于ETF实际σ（一般20-35%）
 3. 无到期 → 不处理换月，但增加"行业轮动切换"逻辑
 """
 
 
-def calc_confidence(symbol_score: int, tech_indicators: dict, direction: str,
+def calc_confidence(symbol_score: float, tech_indicators: dict, direction: str,
                     composite_score: dict = None) -> float:
     """计算ETF置信度 (0.0 ~ 1.0)。
 
-    公式简化（ETF版不需要期货的产业链验证/期限基差维度）：
-    - L1-L4四层得分 70%（归一化到0-1）
-    - 行业轮动Rank 20%
-    - 资金面确认 10%
+    适配通道突破策略 v2.0 评分体系。
     """
     is_bullish = symbol_score > 0
 
-    if composite_score and isinstance(composite_score, dict) and 'dimensions' in composite_score:
-        dims = composite_score['dimensions']
-        l1_score = dims.get('L1_germination', {}).get('score', 0)
-        l2_score = dims.get('L2_volume_price', {}).get('score', 0)
-        l3_score = dims.get('L3_structure', {}).get('score', 0)
-        l4_score = dims.get('L4_confirmation', {}).get('score', 0)
-        veto_score = dims.get('veto', {}).get('score', 0)
+    if composite_score and isinstance(composite_score, dict) and 'sub_scores' in composite_score:
+        ss = composite_score['sub_scores']
+        dc20 = abs(ss.get('dc20', 0))
+        dc55 = abs(ss.get('dc55', 0))
+        bb = abs(ss.get('bb', 0))
+        vol = abs(ss.get('vol', 0))
 
-        # ETF权重归一化
-        l1_norm = l1_score / 30.0  # L1满分30
-        l2_norm = l2_score / 30.0  # L2满分30
-        l3_norm = l3_score / 25.0  # L3满分25
-        l4_norm = l4_score / 15.0  # L4满分15
-        veto_norm = max(0, (veto_score + 20) / 20.0)
+        # 通道突破策略方向：DC20(30%) + DC55(26.25%) + BB(25%) + VOL(18.75%)
+        dc20_norm = min(dc20 / 48.0, 1.0)   # DC20 max ≈ 48
+        dc55_norm = min(dc55 / 40.0, 1.0)   # DC55 max ≈ 40
+        bb_norm = min(bb / 16.0, 1.0)        # BB max ≈ 16
+        vol_norm = min(vol / 10.0, 1.0)      # VOL max ≈ 10
 
-        four_dim_score = (0.30 * l1_norm +
-                         0.25 * l2_norm +
-                         0.20 * l3_norm +
-                         0.15 * l4_norm +
-                         0.10 * veto_norm)
+        four_dim_score = (0.30 * dc20_norm + 0.2625 * dc55_norm +
+                          0.25 * bb_norm + 0.1875 * vol_norm)
     else:
-        signal_strength = abs(symbol_score) / 100.0
+        signal_strength = min(abs(symbol_score) / 76.0, 1.0)
 
         confirmations = 0
         if is_bullish:
@@ -90,10 +82,7 @@ def calc_confidence(symbol_score: int, tech_indicators: dict, direction: str,
 
 def calc_adaptive_target(current_price: float, atr_value: float, daily_volatility: float,
                          direction: str, tech_data: dict = None) -> float:
-    """按波动率分档计算目标价（ETF版）。
-
-    ETF波动率范围一般20-35%，对应daily_vol 0.01-0.02。
-    """
+    """按波动率分档计算目标价（ETF版）。"""
     if daily_volatility > 0.03:
         base_pct = 0.10
     elif daily_volatility > 0.02:
@@ -130,47 +119,72 @@ def calc_adaptive_target(current_price: float, atr_value: float, daily_volatilit
 
 def generate_trade_plan(symbol_data: dict, tech_data: dict = None,
                         composite_score: dict = None, sector_rank: int = 0,
-                        is_sector_rotation: bool = False) -> dict:
-    """生成ETF交易方案（T+1适配版）。
+                        is_sector_rotation: bool = False,
+                        bull_only: bool = True) -> dict:
+    """生成ETF交易方案（T+1适配版）— 适配通道突破策略 v2.1。
+
+    默认纯多头模式：ETF只做多，空头信号返回HOLD。
 
     ETF特有逻辑：
     1. T+1 → 尾盘决断策略
     2. 无杠杆 → 基于σ的仓位公式
     3. 行业轮动切换 → 当Rank掉出前5触发移仓
     """
-    price = symbol_data.get('price', 0)
-    score = symbol_data.get('score', 0)
+    price = symbol_data.get('price', 0) or symbol_data.get('last_price', 0)
+    score = symbol_data.get('total', symbol_data.get('score', 0))
     atr = symbol_data.get('atr', 0)
     daily_vol = symbol_data.get('volatility', 0.02)
 
     if composite_score and isinstance(composite_score, dict) and 'direction' in composite_score:
-        direction = composite_score['direction']
+        raw_dir = composite_score['direction']
+        # 纯多头模式：空头方向→HOLD
+        if bull_only and raw_dir in ('bear', 'SELL'):
+            return {
+                'sector': symbol_data.get('sector', ''),
+                'etf_code': symbol_data.get('etf_code', ''),
+                'decision': 'HOLD', 'confidence': 0, 'recommend_score': 0,
+                'reason': f'纯多头模式：空头信号不生成交易计划(direction={raw_dir})',
+            }
+        direction = 'BUY' if raw_dir == 'bull' else 'SELL'
     else:
+        if bull_only and score <= 0:
+            return {
+                'sector': symbol_data.get('sector', ''),
+                'etf_code': symbol_data.get('etf_code', ''),
+                'decision': 'HOLD', 'confidence': 0, 'recommend_score': 0,
+                'reason': f'纯多头模式：非多头信号不生成交易计划(score={score:.0f})',
+            }
         if score >= 20:
             direction = 'BUY'
         elif score <= -20:
             direction = 'SELL'
         else:
-            return {'sector': symbol_data.get('sector', ''),
-                    'etf_code': symbol_data.get('etf_code', ''),
-                    'decision': 'HOLD', 'confidence': 0, 'recommend_score': 0,
-                    'reason': f'信号强度不足(得分={abs(score)}<20)'}
-
-    if score < 20:
-        return {'sector': symbol_data.get('sector', ''),
+            return {
+                'sector': symbol_data.get('sector', ''),
                 'etf_code': symbol_data.get('etf_code', ''),
                 'decision': 'HOLD', 'confidence': 0, 'recommend_score': 0,
-                'reason': f'信号强度不足(得分={score}<20)'}
+                'reason': f'信号强度不足(得分={abs(score):.0f}<20)',
+            }
+
+    abs_total = abs(score)
+    if abs_total < 20:
+        return {
+            'sector': symbol_data.get('sector', ''),
+            'etf_code': symbol_data.get('etf_code', ''),
+            'decision': 'HOLD', 'confidence': 0, 'recommend_score': 0,
+            'reason': f'信号强度不足(总分={abs_total:.0f}<20)',
+        }
 
     confidence = calc_confidence(score, tech_data or {}, direction, composite_score)
     if confidence < 0.4:
-        return {'sector': symbol_data.get('sector', ''),
-                'etf_code': symbol_data.get('etf_code', ''),
-                'decision': 'HOLD', 'confidence': confidence, 'recommend_score': 0,
-                'reason': f'置信度过低({confidence:.1%}<40%)'}
+        return {
+            'sector': symbol_data.get('sector', ''),
+            'etf_code': symbol_data.get('etf_code', ''),
+            'decision': 'HOLD', 'confidence': confidence, 'recommend_score': 0,
+            'reason': f'置信度过低({confidence:.1%}<40%)',
+        }
 
-    # T+1止损处理：跌破关键均线减仓 + 尾盘决断
-    # 初始止损：1.5×ATR（T+1下比期货的2×ATR更紧）
+    # T+1止损处理
     stop_mult = 1.5 if daily_vol > 0.02 else 1.8
     stop_distance = max(atr * stop_mult, price * 0.015)
 
@@ -188,25 +202,28 @@ def generate_trade_plan(symbol_data: dict, tech_data: dict = None,
     rr = round(reward / risk, 2) if risk > 0 else 0
 
     if rr < 0.8 and confidence < 0.6:
-        return {'sector': symbol_data.get('sector', ''),
-                'etf_code': symbol_data.get('etf_code', ''),
-                'decision': 'HOLD', 'confidence': confidence, 'recommend_score': 0,
-                'reason': f'盈亏比不足({rr}:1<0.8:1)'}
+        return {
+            'sector': symbol_data.get('sector', ''),
+            'etf_code': symbol_data.get('etf_code', ''),
+            'decision': 'HOLD', 'confidence': confidence, 'recommend_score': 0,
+            'reason': f'盈亏比不足({rr}:1<0.8:1)',
+        }
 
     recommend_score = round(confidence * 0.70 + min(rr / 3.0, 1.0) * 0.30, 3)
 
-    # 阶梯化仓位（ETF版：基于σ调整）
-    # ETF无杠杆，基础仓位可更大（默认3%作为base）
-    composite_total = composite_score.get('total', 0) if isinstance(composite_score, dict) else 0
-    if composite_total >= 90:
-        base = 2.0  # 过热减仓
+    # 阶梯化仓位（适配新评分体系：STRONG≥50, WATCH≥40, WEAK≥20）
+    if abs_total >= 65:
+        base = 2.0   # 过热减仓
         tier = 'T3'
-    elif composite_total >= 75:
-        base = 5.0
+    elif abs_total >= 50:
+        base = 5.0   # STRONG
         tier = 'T2'
-    elif composite_total >= 60:
-        base = 3.0
+    elif abs_total >= 40:
+        base = 3.0   # WATCH
         tier = 'T1'
+    elif abs_total >= 30:
+        base = 2.0   # WEAK高段
+        tier = 'T0'
     else:
         base = 1.0
         tier = 'T0'
@@ -241,32 +258,20 @@ def generate_trade_plan(symbol_data: dict, tech_data: dict = None,
         'position_size': f'{pos}%',
         'validity': '1-3日(T+1适用，尾盘决断)',
         'tier': tier,
-        'composite_total': composite_total,
+        'composite_total': abs_total,
         'switch_reason': switch_reason,
-        'strategy_note': 'T+1止损策略：跌破MA20减半仓，尾盘确认后清仓',
+        'strategy_note': 'T+1止损策略：跌破MA20减半仓，尾盘确认后清仓。通道突破策略 v2.0',
     }
 
 
 def generate_rotation_plan(all_plans: list, sector_ranks: list = None) -> dict:
-    """生成行业轮动切换方案。
-
-    当某行业ETF的Rank掉出前5时，触发移仓信号。
-    同时返回建议的目标行业。
-
-    Args:
-        all_plans: 所有ETF的交易方案列表
-        sector_ranks: 行业Rank列表 [{'sector': '半导体', 'rank': 1}, ...]
-
-    Returns:
-        {'switch_from': [...], 'switch_to': [...], 'rotation_note': str}
-    """
+    """生成行业轮动切换方案（保留原有逻辑）。"""
     if not all_plans:
         return {'switch_from': [], 'switch_to': [], 'rotation_note': '无活跃持仓'}
 
     actionable = [p for p in all_plans if p['decision'] != 'HOLD']
     switch_from = [p for p in actionable if p.get('switch_reason')]
 
-    # 建议切换目标：Top3（Rank前3且未持仓）
     top_targets = []
     if sector_ranks:
         held_sectors = {p['sector'] for p in actionable}

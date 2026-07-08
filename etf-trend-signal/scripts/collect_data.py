@@ -101,7 +101,10 @@ class TdxCollector:
     # ── 核心数据 ──
 
     def get_etf_kline(self, etf_code: str, count: int = None) -> List[dict]:
-        """获取ETF日K线数据。
+        """获取ETF日K线数据（通达信TQ-Local列式→行式转换）。
+
+        TQ-Local 返回格式为列式 dict: {Date:[...], Open:[...], Close:[...]}
+        本函数转换为行式 list: [{date,open,close,...}, ...]
 
         Args:
             etf_code: ETF代码（如 512480.SH）
@@ -116,29 +119,42 @@ class TdxCollector:
         result = self._call('get_market_data', {
             'stock_list': [full_code],
             'count': count,
-            'dividend_type': 'qfq',
+            'dividend_type': 'none',
             'period': '1d',
         })
 
         raw = result.get('Value', result)
-        klines = raw.get(full_code, raw) if isinstance(raw, dict) else raw
+        col_data = raw.get(full_code, raw) if isinstance(raw, dict) else raw
 
-        if not isinstance(klines, list) or len(klines) < 2:
+        # ── TDX列式→行式转换 ──
+        if not isinstance(col_data, dict) or 'Date' not in col_data:
             return []
 
+        dates = col_data.get('Date', [])
+        if not isinstance(dates, list) or len(dates) < 2:
+            return []
+
+        opens = col_data.get('Open', [])
+        highs = col_data.get('High', [])
+        lows = col_data.get('Low', [])
+        closes = col_data.get('Close', [])
+        volumes = col_data.get('Volume', [])
+        amounts = col_data.get('Amount', [])
+
+        n = min(len(dates), len(opens), len(highs), len(lows), len(closes))
         parsed = []
-        for k in klines:
+        for i in range(n):
             try:
                 parsed.append({
-                    'date': str(k.get('Date', '')),
-                    'open': float(k.get('Open', 0) or 0),
-                    'high': float(k.get('High', 0) or 0),
-                    'low': float(k.get('Low', 0) or 0),
-                    'close': float(k.get('Close', 0) or 0),
-                    'volume': float(k.get('Volume', 0) or 0) * 100,  # 手→股
-                    'amount': float(k.get('Amount', 0) or 0) * 10000,  # 万元→元
+                    'date': str(dates[i]),
+                    'open': float(opens[i] or 0),
+                    'high': float(highs[i] or 0),
+                    'low': float(lows[i] or 0),
+                    'close': float(closes[i] or 0),
+                    'volume': float(volumes[i] or 0) if i < len(volumes) else 0,
+                    'amount': float(amounts[i] or 0) * 10000 if i < len(amounts) else 0,  # 万元→元
                 })
-            except (ValueError, TypeError, KeyError):
+            except (ValueError, TypeError):
                 continue
         return parsed
 
