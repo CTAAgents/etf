@@ -72,14 +72,26 @@ def run_backtest(config: Config, output_dir: str = None):
     output_path = report.generate_html()
     print(f"\n[报告] HTML报告已生成: {output_path}")
 
-    # 8. 显示最近调仓记录
+    # 8. 显示止损事件
+    if engine.stop_events:
+        print("\n" + "=" * 60)
+        print(f"ATR跟踪止损事件 ({len(engine.stop_events)}次):")
+        print("=" * 60)
+        for ev in engine.stop_events[-10:]:
+            name = config.get_etf_by_code(ev["code"]).name if ev["code"] in config.all_etf_codes else ev["code"]
+            print(f"  {ev['date']} {name}({ev['code']}) "
+                  f"入场{ev['entry_price']:.4f} → 止损{ev['stop_price']:.4f} → 退出{ev['exit_price']:.4f} ({ev['dd']:+.1f}%)")
+
+    # 9. 显示最近调仓记录
     print("\n" + "=" * 60)
     print("最近5次调仓记录:")
     print("=" * 60)
     for record in strategy.rebalance_records[-5:]:
+        etfs = record.selected_etfs if hasattr(record, 'selected_etfs') else ([record.selected_etf] if getattr(record, 'selected_etf', None) else [])
+        etf_str = ", ".join(etfs)
         print(f"日期: {record.date.strftime('%Y-%m-%d')}")
         print(f"  市场状态: {'多头' if record.is_bullish else '空头'}")
-        print(f"  选中ETF: {record.selected_etf}")
+        print(f"  选中ETF: {etf_str}")
         print(f"  决策理由: {record.reason}")
         print()
 
@@ -130,9 +142,10 @@ def generate_signal(config: Config):
     print("📋 今日调仓建议")
     print("=" * 60)
 
-    if signal.selected_etf:
-        etf_config = config.get_etf_by_code(signal.selected_etf)
-        print(f"  建议持有: {etf_config.name} ({signal.selected_etf})")
+    etfs = signal.selected_etfs if hasattr(signal, 'selected_etfs') else ([signal.selected_etf] if getattr(signal, 'selected_etf', None) else [])
+    if etfs and etfs[0] != config.defensive.code:
+        names = [config.get_etf_by_code(c).name for c in etfs]
+        print(f"  建议持有: {', '.join(names)} (等权各{1/len(etfs):.0%})")
     else:
         print(f"  建议持有: {config.defensive.name} ({config.defensive.code})")
 

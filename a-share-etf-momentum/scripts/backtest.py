@@ -17,7 +17,7 @@ class DailyRecord:
     """每日净值记录"""
     date: datetime
     nav: float  # 净值
-    holding: Optional[str]  # 当前持仓代码
+    holdings: List[str]  # 当前持仓代码列表
     holding_name: str  # 持仓名称
     daily_return: float  # 日收益率
     benchmark_nav: float  # 基准净值
@@ -61,7 +61,7 @@ class BacktestResult:
 
 
 class BacktestEngine:
-    """回测引擎"""
+    """回测引擎 — 含ATR移动跟踪止损"""
 
     def __init__(self, config: Config, strategy: DualMomentumStrategy,
                  data: Dict[str, pd.DataFrame]):
@@ -69,92 +69,192 @@ class BacktestEngine:
         self.strategy = strategy
         self.data = data
         self.daily_records: List[DailyRecord] = []
+        self.stop_events: List[dict] = []  # 记录止损触发事件
+
+    def _precompute_atr(self) -> Dict[str, pd.Series]:
+        """预计算所有ETF的ATR(14)"""
+        from .momentum import calculate_atr
+        atr_data = {}
+        for code, df in self.data.items():
+            if code == self.config.defensive.code:
+                continue  # 货币ETF不需要ATR
+            atr_data[code] = calculate_atr(df, self.config.trailing_stop_atr_period)
+        return atr_data
+
+    def _get_atr_at_date(self, df: pd.DataFrame, atr_series: pd.Series,
+                         date: pd.Timestamp) -> Optional[float]:
+        """获取指定日期（或之前最近）的ATR值"""
+        mask = atr_series.index.isin(df[df["date"] <= date].index)
+        valid = atr_series[mask].dropna()
+        if valid.empty:
+            return None
+        return valid.iloc[-1]
+
+    def _get_price_at_date(self, df: pd.DataFrame, date: pd.Timestamp,
+                           field: str = "close") -> Optional[float]:
+        """获取指定日期的价格"""
+        row = df[df["date"] == date]
+        if row.empty:
+            return None
+        return float(row[field].iloc[0])
 
     def run(self) -> BacktestResult:
         """运行回测"""
-        # 确定回测日期范围
         start_date = pd.Timestamp(self.config.backtest_start)
         end_date = pd.Timestamp(self.config.backtest_end)
-
-        # 获取所有ETF的共同日期
         all_dates = self._get_common_dates(start_date, end_date)
 
-        # 检查是否有足够的数据
         if len(all_dates) < 2:
             raise ValueError(f"回测数据不足，仅有 {len(all_dates)} 个交易日，需要至少2个")
 
+        # 预计算 ATR
+        atr_data = {}
+        if self.config.trailing_stop_enabled:
+            atr_data = self._precompute_atr()
+
         # 初始化
-        capital = self.config.initial_capital
         nav = 1.0
         benchmark_nav = 1.0
-        current_holding = None
+        current_holdings: List[str] = []
+        holding_weights: Dict[str, float] = {}
         last_rebalance_date = None
         rebalance_count = 0
 
-        # 基准数据
-        benchmark_code = self.config.benchmark.code
+        # 每只持仓的跟踪止损状态
+        # {code: {"entry_price": float, "entry_atr": float, "highest": float}}
+        stop_state: Dict[str, dict] = {}
 
-        # 每日循环
+        benchmark_code = self.config.benchmark.code
+        defensive_code = self.config.defensive.code
+
         for i, date in enumerate(all_dates):
             if i == 0:
-                # 第一天初始化
                 self.daily_records.append(DailyRecord(
-                    date=date,
-                    nav=nav,
-                    holding=None,
-                    holding_name="初始状态",
-                    daily_return=0.0,
-                    benchmark_nav=benchmark_nav,
-                    benchmark_return=0.0
+                    date=date, nav=nav, holdings=[], holding_name="初始状态",
+                    daily_return=0.0, benchmark_nav=benchmark_nav, benchmark_return=0.0
                 ))
                 continue
 
-            # 获取当日数据
             prev_date = all_dates[i-1]
-
-            # 计算基准日收益率
             benchmark_return = self._get_daily_return(benchmark_code, date, prev_date)
             benchmark_nav *= (1 + benchmark_return)
 
-            # 判断是否需要调仓
-            if self.strategy.should_rebalance(date, last_rebalance_date):
-                # 截取到当日的数据用于策略计算
+            # ---- 调仓日 ----
+            is_rebalance = self.strategy.should_rebalance(date, last_rebalance_date)
+            if is_rebalance:
                 data_slice = self._slice_data_to_date(date)
                 signal = self.strategy.generate_signal(data_slice, date)
-                current_holding = signal.selected_etf
+                current_holdings = signal.selected_etfs
+                n = len(current_holdings)
+                holding_weights = {code: 1.0/n for code in current_holdings}
                 last_rebalance_date = date
                 rebalance_count += 1
+                stop_state.clear()  # 调仓后重置所有止损
 
-            # 计算持仓日收益率
-            if current_holding:
-                holding_return = self._get_daily_return(current_holding, date, prev_date)
-                # 扣除交易成本（仅在调仓日，买卖双边）
-                if last_rebalance_date == date:
-                    # 卖出旧持仓手续费 + 买入新持仓手续费 + 滑点
-                    holding_return -= (self.config.commission_rate * 2 + self.config.slippage_rate * 2)
+                # 记录新仓位的入场ATR
+                for code in current_holdings:
+                    if code == defensive_code:
+                        continue
+                    df = self.data.get(code)
+                    atr_s = atr_data.get(code)
+                    if df is not None and atr_s is not None:
+                        entry_atr = self._get_atr_at_date(df, atr_s, date)
+                        entry_price = self._get_price_at_date(df, date)
+                        if entry_atr and entry_price:
+                            stop_state[code] = {
+                                "entry_price": entry_price,
+                                "entry_atr": entry_atr,
+                                "highest": entry_price,
+                            }
+
+            # ---- 逐日跟踪止损检查 ----
+            if self.config.trailing_stop_enabled:
+                to_remove = []
+                for code in list(current_holdings):
+                    if code == defensive_code:
+                        continue
+                    df = self.data.get(code)
+                    if df is None:
+                        continue
+                    today_close = self._get_price_at_date(df, date)
+                    if today_close is None:
+                        continue
+                    state = stop_state.get(code)
+                    if state is None:
+                        continue
+
+                    # 更新最高价
+                    today_high = self._get_price_at_date(df, date, "high")
+                    if today_high and today_high > state["highest"]:
+                        state["highest"] = today_high
+
+                    # 计算跟踪止损价 = 最高价 - 3 × 入场ATR
+                    stop_price = state["highest"] - self.config.trailing_stop_atr_multiplier * state["entry_atr"]
+
+                    if today_close <= stop_price:
+                        to_remove.append(code)
+                        dd_pct = (today_close / state["entry_price"] - 1) * 100
+                        self.stop_events.append({
+                            "date": date.strftime("%Y-%m-%d"),
+                            "code": code,
+                            "entry_price": state["entry_price"],
+                            "stop_price": stop_price,
+                            "exit_price": today_close,
+                            "dd": dd_pct,
+                        })
+
+                # 移除触发止损的持仓
+                for code in to_remove:
+                    if code in holding_weights:
+                        del holding_weights[code]
+                    current_holdings = [h for h in current_holdings if h != code]
+                    if code in stop_state:
+                        del stop_state[code]
+
+                # 如果全部止损，切换至货币ETF
+                if not current_holdings or all(h == defensive_code for h in current_holdings):
+                    current_holdings = [defensive_code]
+                    holding_weights = {defensive_code: 1.0}
+                    stop_state.clear()
+
+                # 重新归一化剩余仓位权重
+                if current_holdings and sum(holding_weights.values()) > 0:
+                    total_w = sum(holding_weights.values())
+                    holding_weights = {k: v/total_w for k, v in holding_weights.items()}
+
+            # ---- 计算组合日收益率 ----
+            if current_holdings:
+                portfolio_return = 0.0
+                for code in list(holding_weights.keys()):
+                    hr = self._get_daily_return(code, date, prev_date)
+                    w = holding_weights.get(code, 0.0)
+                    portfolio_return += hr * w
+                if is_rebalance:
+                    portfolio_return -= (self.config.commission_rate * 2 + self.config.slippage_rate * 2)
             else:
-                holding_return = 0.0
+                portfolio_return = 0.0
 
-            nav *= (1 + holding_return)
+            nav *= (1 + portfolio_return)
 
-            # 获取持仓名称
-            holding_name = ""
-            if current_holding:
-                try:
-                    holding_name = self.config.get_etf_by_code(current_holding).name
-                except ValueError:
-                    holding_name = current_holding
+            # 持仓名称
+            if current_holdings:
+                names = []
+                for code in current_holdings:
+                    try: names.append(self.config.get_etf_by_code(code).name)
+                    except ValueError: names.append(code)
+                holding_name = ", ".join(names)
+            else:
+                holding_name = "空仓"
 
-            # 记录每日净值
             self.daily_records.append(DailyRecord(
-                date=date,
-                nav=nav,
-                holding=current_holding,
-                holding_name=holding_name,
-                daily_return=holding_return,
-                benchmark_nav=benchmark_nav,
-                benchmark_return=benchmark_return
+                date=date, nav=nav, holdings=list(current_holdings),
+                holding_name=holding_name, daily_return=portfolio_return,
+                benchmark_nav=benchmark_nav, benchmark_return=benchmark_return
             ))
+
+        # 计算绩效
+        result = self._calculate_performance(nav, benchmark_nav, all_dates)
+        return result
 
         # 计算绩效指标
         result = self._calculate_performance(nav, benchmark_nav, all_dates)
@@ -301,15 +401,14 @@ class BacktestEngine:
         return wins / total if total > 0 else 0.0
 
     def _calculate_holding_distribution(self) -> Dict[str, float]:
-        """计算持仓分布"""
+        """计算持仓分布（多持仓按天数加权）"""
         holding_days = {}
         total_days = len(self.daily_records)
 
         for record in self.daily_records:
-            if record.holding:
-                holding_days[record.holding] = holding_days.get(record.holding, 0) + 1
+            for code in (record.holdings or []):
+                holding_days[code] = holding_days.get(code, 0) + 1
 
-        # 转换为百分比
         distribution = {}
         for code, days in holding_days.items():
             try:

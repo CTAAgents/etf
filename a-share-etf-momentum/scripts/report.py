@@ -48,11 +48,14 @@ class ReportGenerator:
         # 调仓记录表格
         rebalance_rows = ""
         for record in r.rebalance_records:
-            etf_name = record.selected_etf or "N/A"
-            try:
-                etf_name = self.config.get_etf_by_code(record.selected_etf).name
-            except (ValueError, AttributeError):
-                pass
+            etfs = record.selected_etfs if hasattr(record, 'selected_etfs') else ([record.selected_etf] if getattr(record, 'selected_etf', None) else [])
+            names = []
+            for code in etfs:
+                try:
+                    names.append(self.config.get_etf_by_code(code).name)
+                except (ValueError, AttributeError):
+                    names.append(code or "N/A")
+            etf_name = ", ".join(names)
 
             rebalance_rows += f"""
             <tr>

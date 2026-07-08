@@ -47,8 +47,8 @@ class Config:
     ))
 
     # ========== 动量参数 ==========
-    momentum_window: int = 120  # 绝对动量窗口（交易日，约6个月）- v1.9训练/测试优化
-    relative_momentum_window: int = 50  # 相对动量窗口（交易日）- v1.9训练/测试优化
+    momentum_window: int = 90  # 绝对动量窗口（交易日）- v2.0 4D优化
+    relative_momentum_window: int = 30  # 相对动量窗口（交易日）- v2.0 4D优化
     rebalance_freq: str = "monthly"  # 调仓频率 - 参数优化最佳频率
     top_n: int = 1  # 相对动量选取数量
 
@@ -65,6 +65,11 @@ class Config:
     initial_capital: float = 1_000_000  # 初始资金
     commission_rate: float = 0.001  # 单边手续费（千分之一）
     slippage_rate: float = 0.0001  # 滑点（万分之一）
+
+    # ========== 移动跟踪止损 ==========
+    trailing_stop_enabled: bool = True  # 是否启用ATR移动跟踪止损
+    trailing_stop_atr_period: int = 14  # ATR计算周期
+    trailing_stop_atr_multiplier: float = 1.5  # ATR倍数（止损距离=入场价 - 1.5×入场ATR）- v2.0 4D优化
 
     # ========== 数据源配置 ==========
     data_source: str = "westock"  # 主数据源: westock(腾讯自选股) / akshare / local

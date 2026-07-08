@@ -274,17 +274,22 @@ class MomentumCalculator:
 
         return momentum_results
 
-    def select_target(self, momentum_results: List[MomentumResult]) -> Optional[str]:
+    def select_targets(self, momentum_results: List[MomentumResult],
+                       benchmark_return: Optional[float] = None) -> List[str]:
         """
-        根据动量排名和估值刹车选择目标ETF
+        Top-1选股：从动量排名中选取排名第一且未触发估值刹车的ETF
 
         Returns:
-            选中的ETF代码，若无合适标的则返回None
+            选中的ETF代码列表
         """
+        selected = []
         for result in momentum_results:
-            if not result.valuation_triggered:
-                return result.code
-        return None
+            if result.valuation_triggered:
+                continue
+            selected.append(result.code)
+            if len(selected) >= self.config.top_n:
+                break
+        return selected
 
     def generate_momentum_report(self, momentum_results: List[MomentumResult],
                                 is_bullish: bool, benchmark_return: float) -> str:
@@ -296,27 +301,63 @@ class MomentumCalculator:
 
         # 绝对动量状态
         status = "多头市场 ✓" if is_bullish else "空头市场 ✗"
-        lines.append(f"\n【绝对动量】沪深300ETF 252日收益率: {benchmark_return:.2%} → {status}")
+        lines.append(f"\n【绝对动量】沪深300ETF {self.config.momentum_window}日收益率: {benchmark_return:.2%} → {status}")
 
         # 相对动量排名
         lines.append(f"\n【相对动量】行业ETF排名（Top {self.config.top_n}）:")
         lines.append("-" * 80)
-        lines.append(f"{'排名':<6}{'代码':<10}{'名称':<12}{'252日收益':<12}{'PE分位':<10}{'PB分位':<10}{'刹车':<8}")
+        lines.append(f"{'排名':<6}{'代码':<10}{'名称':<12}{'收益':<12}{'PE分位':<10}{'PB分位':<10}{'刹车':<8}{'入选':<8}")
         lines.append("-" * 80)
 
+        targets = self.select_targets(momentum_results, benchmark_return)
         for r in momentum_results:
             pe_str = f"{r.pe_percentile:.1f}%" if r.pe_percentile is not None else "N/A"
             pb_str = f"{r.pb_percentile:.1f}%" if r.pb_percentile is not None else "N/A"
             brake = "✓ 触发" if r.valuation_triggered else "✗"
+            selected = "✓" if r.code in targets else ""
             lines.append(f"{r.rank:<6}{r.code:<10}{r.name:<12}"
-                        f"{r.return_252d:<12.2%}{pe_str:<10}{pb_str:<10}{brake:<8}")
+                        f"{r.return_252d:<12.2%}{pe_str:<10}{pb_str:<10}{brake:<8}{selected:<8}")
 
-        # 选股结果
-        target = self.select_target(momentum_results)
-        if target:
-            etf_config = self.config.get_etf_by_code(target)
-            lines.append(f"\n【选股结果】: {etf_config.name} ({target})")
+        if targets:
+            names = [self.config.get_etf_by_code(c).name for c in targets]
+            weight = f"{1/len(targets):.0%}"
+            lines.append(f"\n【选股结果】: {len(targets)} 只ETF等权持有（各{weight}）")
+            for c, n in zip(targets, names):
+                lines.append(f"  - {n} ({c})")
         else:
             lines.append(f"\n【选股结果】: 无合适标的，建议持有货币ETF ({self.config.defensive.code})")
 
         return "\n".join(lines)
+
+
+def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
+    """
+    计算 ATR (Average True Range)
+
+    Args:
+        df: 含 high, low, close 列的 DataFrame
+        period: ATR 周期（默认14）
+
+    Returns:
+        ATR 序列，NaN 填充到与输入等长
+    """
+    high = df["high"].values
+    low = df["low"].values
+    close = df["close"].values
+    prev_close = np.roll(close, 1)
+    prev_close[0] = close[0]
+
+    tr = np.maximum(
+        high - low,
+        np.maximum(
+            np.abs(high - prev_close),
+            np.abs(low - prev_close)
+        )
+    )
+    # Wilder's smoothing
+    atr = np.full(len(df), np.nan)
+    atr[period] = np.mean(tr[1:period+1])  # 初始值用简单平均
+    for i in range(period + 1, len(df)):
+        atr[i] = (atr[i-1] * (period - 1) + tr[i]) / period
+
+    return pd.Series(atr, index=df.index)

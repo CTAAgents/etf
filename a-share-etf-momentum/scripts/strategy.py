@@ -30,7 +30,7 @@ class RebalanceRecord:
     is_bullish: bool
     benchmark_return: float
     momentum_ranking: List[MomentumResult]
-    selected_etf: Optional[str]
+    selected_etfs: List[str]  # 选中的ETF代码列表
     trade_signals: List[TradeSignal]
     reason: str
 
@@ -42,7 +42,7 @@ class DualMomentumStrategy:
         self.config = config
         self.momentum_calc = MomentumCalculator(config)
         self.rebalance_records: List[RebalanceRecord] = []
-        self.current_holding: Optional[str] = None
+        self.current_holdings: List[str] = []  # 当前持仓列表
         self._pe_data_cache: Optional[Dict[str, float]] = None
 
     def should_rebalance(self, current_date: datetime, last_rebalance: Optional[datetime] = None) -> bool:
@@ -96,7 +96,7 @@ class DualMomentumStrategy:
                 is_bullish=False,
                 benchmark_return=benchmark_return,
                 momentum_ranking=[],
-                selected_etf=self.config.defensive.code,
+                selected_etfs=[self.config.defensive.code],
                 trade_signals=[TradeSignal(
                     date=current_date,
                     action="buy",
@@ -105,10 +105,10 @@ class DualMomentumStrategy:
                     weight=1.0,
                     reason=f"绝对动量不满足（沪深300收益率={benchmark_return:.2%}≤0），切换至防御"
                 )],
-                reason=f"空头市场，沪深300ETF 252日收益率={benchmark_return:.2%}"
+                reason=f"空头市场，沪深300ETF {self.config.momentum_window}日收益率={benchmark_return:.2%}"
             )
             self.rebalance_records.append(record)
-            self.current_holding = self.config.defensive.code
+            self.current_holdings = [self.config.defensive.code]
             return record
 
         # Step 2: 相对动量计算
@@ -116,63 +116,67 @@ class DualMomentumStrategy:
 
         # Step 3: 估值分位刹车（若启用）
         if self.config.valuation_enabled:
-            # 使用缓存的PE数据或自动获取
             if pe_data is None and self._pe_data_cache is None:
                 self._pe_data_cache = self.momentum_calc.fetch_all_valuation_data()
             effective_pe_data = pe_data or self._pe_data_cache
             momentum_results = self.momentum_calc.apply_valuation_brake(momentum_results, effective_pe_data)
 
-        # Step 4: 选股
-        selected_code = self.momentum_calc.select_target(momentum_results)
+        # Step 4: Top-N选股（跑赢基准过滤 + 等权分配）
+        selected_codes = self.momentum_calc.select_targets(momentum_results, benchmark_return)
 
-        if selected_code is None:
-            # 所有标的均触发刹车，持有货币ETF
+        if not selected_codes:
+            # 无标的入选（全部刹车或未跑赢基准），持有货币ETF
             record = RebalanceRecord(
                 date=current_date,
                 is_bullish=True,
                 benchmark_return=benchmark_return,
                 momentum_ranking=momentum_results,
-                selected_etf=self.config.defensive.code,
+                selected_etfs=[self.config.defensive.code],
                 trade_signals=[TradeSignal(
                     date=current_date,
                     action="buy",
                     code=self.config.defensive.code,
                     name=self.config.defensive.name,
                     weight=1.0,
-                    reason="所有行业ETF均触发估值刹车，切换至货币ETF"
+                    reason="无ETF满足条件（估值刹车/未跑赢基准），切换至货币ETF"
                 )],
-                reason="所有行业ETF估值过高，防御性持有货币ETF"
+                reason="无满足条件的行业ETF，防御性持有货币ETF"
             )
         else:
-            # 买入选中的行业ETF
-            etf_config = self.config.get_etf_by_code(selected_code)
+            # 等权分配仓位
+            weight = 1.0 / len(selected_codes)
+            signals = []
+            for code in selected_codes:
+                etf_cfg = self.config.get_etf_by_code(code)
+                signals.append(TradeSignal(
+                    date=current_date,
+                    action="buy",
+                    code=code,
+                    name=etf_cfg.name,
+                    weight=weight,
+                    reason=f"动量排名Top-{len(selected_codes)}，跑赢基准，等权{weight:.0%}"
+                ))
+            names = [self.config.get_etf_by_code(c).name for c in selected_codes]
             record = RebalanceRecord(
                 date=current_date,
                 is_bullish=True,
                 benchmark_return=benchmark_return,
                 momentum_ranking=momentum_results,
-                selected_etf=selected_code,
-                trade_signals=[TradeSignal(
-                    date=current_date,
-                    action="buy",
-                    code=selected_code,
-                    name=etf_config.name,
-                    weight=1.0,
-                    reason=f"动量排名第一（{momentum_results[0].return_252d:.2%}），估值未触发刹车"
-                )],
-                reason=f"多头市场，选择动量最强的{etf_config.name}"
+                selected_etfs=selected_codes,
+                trade_signals=signals,
+                reason=f"多头市场，等权持有Top-{len(selected_codes)}: {', '.join(names)}"
             )
 
         self.rebalance_records.append(record)
-        self.current_holding = record.selected_etf
+        self.current_holdings = record.selected_etfs
         return record
 
-    def get_holding_at_date(self, date: datetime) -> Optional[str]:
-        """获取指定日期的持仓"""
+    def get_holdings_at_date(self, date: datetime) -> List[str]:
+        """获取指定日期的持仓列表"""
         for record in reversed(self.rebalance_records):
             if record.date <= date:
-                return record.selected_etf
-        return None
+                return record.selected_etfs
+        return []
 
     def get_all_trade_signals(self) -> List[TradeSignal]:
         """获取所有交易信号"""
