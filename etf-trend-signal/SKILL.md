@@ -1,23 +1,26 @@
-# 行业ETF趋势信号发现系统 v2.2.0
+# 行业ETF趋势信号发现系统 v2.3.0
 
-**etf-trend-signal** — 基于趋势跟踪的行业轮动ETF周频调仓策略技能。
-数据源：**纯通达信TQ-Local**（HTTP JSON-RPC，无第三方库依赖）。
+**etf-trend-signal** — 基于通道突破策略的行业ETF信号评分系统。
+数据源：**腾讯自选股 westock-mcp**（默认，前复权日线）| 通达信TQ-Local（--source tdx）。
 
 ## 📌 定位
 
-v2.2 在 v2.1 基础上新增**完整调仓执行管道** + **妙想模拟交易集成**：
-- **完整管道**：信号扫描 → 调仓决策 → ETF→股票映射 → 模拟交易执行，一条命令完成
-- **妙想模拟交易**：通过 mx-moni API 实现持仓查询、市价买卖、一键撤单、经验交流发帖
+v2.3 在 v2.2 基础上进行**数据源架构重构**：
+- **默认腾讯自选股**：westock-mcp 前复权日线，数据质量稳定，无本地客户端依赖
+- **通达信备用**：`--source tdx` 切回通达信，自动前复权对齐
+- **缓存机制**：MCP预取 → JSON缓存文件 → scan_all.py，解决Python脚本无法直接调MCP的局限
 - **零胶水代码**：所有能力均为 skill 内置模块，无需 workspace 桥接脚本
-- 数据源不变：**纯通达信TQ-Local**
+- **数据源切换**：默认腾讯自选股（westock-mcp 前复权日线），`--source tdx` 切回通达信
 
-## 🎯 核心变更（vs v2.1.x）
+## 🎯 核心变更（vs v2.2.x）
 
-| 维度 | v2.1.x (旧) | v2.2.0 (新) |
+| 维度 | v2.2.x (旧) | v2.3.0 (新) |
 |:----|:-----------|:-----------|
-| 调仓执行 | 仅输出调仓方案JSON | **完整管道**：扫描→决策→股票映射→API交易 |
-| 模拟交易 | 无 | **mx-moni 集成**：持仓查询/市价买卖/撤单/发帖 |
-| CLI接口 | `weekly_rebalance.py (无参数)` | 新增 `--calc-only` / `--execute` / 默认全流程 |
+| 默认数据源 | 通达信TQ-Local | **腾讯自选股 westock-mcp** |
+| TDX复权 | dividend_type='none' (不复权) | **dividend_type='qfq' (前复权)** |
+| 数据架构 | 单一HTTP直连 | **双源调度** + JSON缓存 |
+| CLI接口 | scan_all.py (无参数) | 新增 `--source` / `--cache` |
+| 缓存机制 | 无 | `~/.workbuddy/cache/etf_westock_data.json` |
 | ETF→股票 | 无 | **stock_mapper.py**：31行业ETF→前3大持仓股票映射 |
 | 架构 | 部分能力在workspace胶水脚本 | **零胶水代码**：全部内置为skill模块 |
 
@@ -348,6 +351,16 @@ scripts/
 | Z分数范围 | 方向感知Z-score -3~+3 |
 
 ## 📝 版本历史
+
+### v2.3.0 (2026-07-08)
+**核心改动：数据源架构重构 — 默认腾讯自选股 + 通达信前复权修复**
+
+1. **默认数据源切换**：westock-mcp 前复权日线 → 主数据源，通达信 → `--source tdx` 备用
+2. **双源调度架构**：`EtfDataCollector` 统一入口，`WestockCollector`(新) + `TdxCollector`(保留)
+3. **JSON缓存机制**：MCP预取 → `~/.workbuddy/cache/etf_westock_data.json` → `scan_all.py` 加载
+4. **TDX复权修复**：`collect_data.py` 硬编码 `dividend_type='none'` → `TDX_CONFIG['dividend_type']` ('qfq')
+5. **CLI新增**：`scan_all.py --source westock|tdx --cache <path>`
+6. **根因修复**：TDX不复权导致与westock评分方向翻转（半导体 +55 vs 空头），已通过复权对齐解决
 
 ### v2.2.0 (2026-07-08)
 **核心改动：完整调仓执行管道 + 妙想模拟交易集成 + 零胶水代码**

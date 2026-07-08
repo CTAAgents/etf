@@ -1,0 +1,670 @@
+{
+  "date": "2026-07-08",
+  "grid_sizes": {
+    "freq": 4,
+    "top_n": 9,
+    "entry": 6,
+    "exit": 5,
+    "force_cash": 5,
+    "total": 5400
+  },
+  "global_best": {
+    "freq": "weekly",
+    "top_n": 3,
+    "entry": 55,
+    "exit": 25,
+    "force_cash": 30,
+    "sharpe": 6.699,
+    "total_return": 130.27,
+    "annual_return": 344.04,
+    "max_drawdown": 13.2,
+    "calmar": 26.067,
+    "win_rate": 24.8
+  },
+  "global_top10": [
+    {
+      "freq": "weekly",
+      "top_n": 3,
+      "entry": 55,
+      "exit": 25,
+      "force_cash": 30,
+      "sharpe": 6.699,
+      "total_return": 130.27,
+      "annual_return": 344.04,
+      "max_drawdown": 13.2,
+      "calmar": 26.067,
+      "win_rate": 24.8
+    },
+    {
+      "freq": "weekly",
+      "top_n": 1,
+      "entry": 55,
+      "exit": 25,
+      "force_cash": 30,
+      "sharpe": 6.534,
+      "total_return": 131.65,
+      "annual_return": 348.77,
+      "max_drawdown": 13.2,
+      "calmar": 26.426,
+      "win_rate": 24.1
+    },
+    {
+      "freq": "weekly",
+      "top_n": 2,
+      "entry": 55,
+      "exit": 25,
+      "force_cash": 30,
+      "sharpe": 5.855,
+      "total_return": 117.34,
+      "annual_return": 300.46,
+      "max_drawdown": 13.2,
+      "calmar": 22.765,
+      "win_rate": 24.1
+    },
+    {
+      "freq": "weekly",
+      "top_n": 1,
+      "entry": 30,
+      "exit": 25,
+      "force_cash": 45,
+      "sharpe": 5.437,
+      "total_return": 135.73,
+      "annual_return": 363.0,
+      "max_drawdown": 21.29,
+      "calmar": 17.049,
+      "win_rate": 33.3
+    },
+    {
+      "freq": "weekly",
+      "top_n": 1,
+      "entry": 35,
+      "exit": 25,
+      "force_cash": 45,
+      "sharpe": 5.437,
+      "total_return": 135.73,
+      "annual_return": 363.0,
+      "max_drawdown": 21.29,
+      "calmar": 17.049,
+      "win_rate": 33.3
+    },
+    {
+      "freq": "weekly",
+      "top_n": 1,
+      "entry": 40,
+      "exit": 25,
+      "force_cash": 45,
+      "sharpe": 5.437,
+      "total_return": 135.73,
+      "annual_return": 363.0,
+      "max_drawdown": 21.29,
+      "calmar": 17.049,
+      "win_rate": 33.3
+    },
+    {
+      "freq": "weekly",
+      "top_n": 3,
+      "entry": 55,
+      "exit": 30,
+      "force_cash": 30,
+      "sharpe": 5.355,
+      "total_return": 117.54,
+      "annual_return": 301.11,
+      "max_drawdown": 13.2,
+      "calmar": 22.814,
+      "win_rate": 21.3
+    },
+    {
+      "freq": "weekly",
+      "top_n": 3,
+      "entry": 55,
+      "exit": 35,
+      "force_cash": 30,
+      "sharpe": 5.355,
+      "total_return": 117.54,
+      "annual_return": 301.11,
+      "max_drawdown": 13.2,
+      "calmar": 22.814,
+      "win_rate": 21.3
+    },
+    {
+      "freq": "weekly",
+      "top_n": 1,
+      "entry": 50,
+      "exit": 30,
+      "force_cash": 45,
+      "sharpe": 5.308,
+      "total_return": 127.74,
+      "annual_return": 335.34,
+      "max_drawdown": 16.97,
+      "calmar": 19.756,
+      "win_rate": 27.0
+    },
+    {
+      "freq": "weekly",
+      "top_n": 2,
+      "entry": 55,
+      "exit": 30,
+      "force_cash": 30,
+      "sharpe": 5.23,
+      "total_return": 115.79,
+      "annual_return": 295.37,
+      "max_drawdown": 13.2,
+      "calmar": 22.38,
+      "win_rate": 21.3
+    }
+  ],
+  "frequencies": {
+    "daily": {
+      "label": "日频",
+      "n_rebalances": 690,
+      "best": {
+        "freq": "daily",
+        "top_n": 15,
+        "entry": 40,
+        "exit": 30,
+        "force_cash": 40,
+        "sharpe": 1.668,
+        "total_return": 320.22,
+        "annual_return": 68.93,
+        "max_drawdown": 22.91,
+        "calmar": 3.009,
+        "win_rate": 40.6
+      },
+      "top5": [
+        {
+          "freq": "daily",
+          "top_n": 15,
+          "entry": 40,
+          "exit": 30,
+          "force_cash": 40,
+          "sharpe": 1.668,
+          "total_return": 320.22,
+          "annual_return": 68.93,
+          "max_drawdown": 22.91,
+          "calmar": 3.009,
+          "win_rate": 40.6
+        },
+        {
+          "freq": "daily",
+          "top_n": 15,
+          "entry": 40,
+          "exit": 35,
+          "force_cash": 40,
+          "sharpe": 1.649,
+          "total_return": 314.81,
+          "annual_return": 68.13,
+          "max_drawdown": 22.91,
+          "calmar": 2.974,
+          "win_rate": 40.6
+        },
+        {
+          "freq": "daily",
+          "top_n": 15,
+          "entry": 40,
+          "exit": 40,
+          "force_cash": 40,
+          "sharpe": 1.624,
+          "total_return": 307.97,
+          "annual_return": 67.11,
+          "max_drawdown": 22.91,
+          "calmar": 2.929,
+          "win_rate": 40.4
+        },
+        {
+          "freq": "daily",
+          "top_n": 15,
+          "entry": 40,
+          "exit": 25,
+          "force_cash": 40,
+          "sharpe": 1.607,
+          "total_return": 304.3,
+          "annual_return": 66.56,
+          "max_drawdown": 22.91,
+          "calmar": 2.905,
+          "win_rate": 40.1
+        },
+        {
+          "freq": "daily",
+          "top_n": 7,
+          "entry": 45,
+          "exit": 30,
+          "force_cash": 40,
+          "sharpe": 1.292,
+          "total_return": 197.88,
+          "annual_return": 48.98,
+          "max_drawdown": 22.91,
+          "calmar": 2.138,
+          "win_rate": 37.0
+        }
+      ],
+      "plateau": {
+        "best": {
+          "freq": "daily",
+          "top_n": 15,
+          "entry": 40,
+          "exit": 30,
+          "force_cash": 40,
+          "sharpe": 1.668,
+          "total_return": 320.22,
+          "annual_return": 68.93,
+          "max_drawdown": 22.91,
+          "calmar": 3.009,
+          "win_rate": 40.6
+        },
+        "best_val": 1.668,
+        "threshold": 1.5679999999999998,
+        "n_good": 4,
+        "n_total": 1350,
+        "good_pct": 0.3,
+        "plateau": {
+          "top_n": [
+            15,
+            15
+          ],
+          "entry": [
+            40,
+            40
+          ],
+          "exit": [
+            25,
+            40
+          ],
+          "fc": [
+            40,
+            40
+          ]
+        },
+        "suggested": {
+          "top_n": 15,
+          "entry": 40,
+          "exit": 30,
+          "force_cash": 40
+        }
+      }
+    },
+    "weekly": {
+      "label": "周频",
+      "n_rebalances": 141,
+      "best": {
+        "freq": "weekly",
+        "top_n": 3,
+        "entry": 55,
+        "exit": 25,
+        "force_cash": 30,
+        "sharpe": 6.699,
+        "total_return": 130.27,
+        "annual_return": 344.04,
+        "max_drawdown": 13.2,
+        "calmar": 26.067,
+        "win_rate": 24.8
+      },
+      "top5": [
+        {
+          "freq": "weekly",
+          "top_n": 3,
+          "entry": 55,
+          "exit": 25,
+          "force_cash": 30,
+          "sharpe": 6.699,
+          "total_return": 130.27,
+          "annual_return": 344.04,
+          "max_drawdown": 13.2,
+          "calmar": 26.067,
+          "win_rate": 24.8
+        },
+        {
+          "freq": "weekly",
+          "top_n": 1,
+          "entry": 55,
+          "exit": 25,
+          "force_cash": 30,
+          "sharpe": 6.534,
+          "total_return": 131.65,
+          "annual_return": 348.77,
+          "max_drawdown": 13.2,
+          "calmar": 26.426,
+          "win_rate": 24.1
+        },
+        {
+          "freq": "weekly",
+          "top_n": 2,
+          "entry": 55,
+          "exit": 25,
+          "force_cash": 30,
+          "sharpe": 5.855,
+          "total_return": 117.34,
+          "annual_return": 300.46,
+          "max_drawdown": 13.2,
+          "calmar": 22.765,
+          "win_rate": 24.1
+        },
+        {
+          "freq": "weekly",
+          "top_n": 1,
+          "entry": 30,
+          "exit": 25,
+          "force_cash": 45,
+          "sharpe": 5.437,
+          "total_return": 135.73,
+          "annual_return": 363.0,
+          "max_drawdown": 21.29,
+          "calmar": 17.049,
+          "win_rate": 33.3
+        },
+        {
+          "freq": "weekly",
+          "top_n": 1,
+          "entry": 35,
+          "exit": 25,
+          "force_cash": 45,
+          "sharpe": 5.437,
+          "total_return": 135.73,
+          "annual_return": 363.0,
+          "max_drawdown": 21.29,
+          "calmar": 17.049,
+          "win_rate": 33.3
+        }
+      ],
+      "plateau": {
+        "best": {
+          "freq": "weekly",
+          "top_n": 3,
+          "entry": 55,
+          "exit": 25,
+          "force_cash": 30,
+          "sharpe": 6.699,
+          "total_return": 130.27,
+          "annual_return": 344.04,
+          "max_drawdown": 13.2,
+          "calmar": 26.067,
+          "win_rate": 24.8
+        },
+        "best_val": 6.699,
+        "threshold": 6.599,
+        "n_good": 1,
+        "n_total": 1350,
+        "good_pct": 0.1,
+        "plateau": {
+          "top_n": [
+            3,
+            3
+          ],
+          "entry": [
+            55,
+            55
+          ],
+          "exit": [
+            25,
+            25
+          ],
+          "fc": [
+            30,
+            30
+          ]
+        },
+        "suggested": {
+          "top_n": 3,
+          "entry": 55,
+          "exit": 25,
+          "force_cash": 30
+        }
+      }
+    },
+    "biweekly": {
+      "label": "双周频",
+      "n_rebalances": 71,
+      "best": {
+        "freq": "biweekly",
+        "top_n": 15,
+        "entry": 40,
+        "exit": 25,
+        "force_cash": 30,
+        "sharpe": 4.217,
+        "total_return": 59.86,
+        "annual_return": 428.56,
+        "max_drawdown": 27.63,
+        "calmar": 15.509,
+        "win_rate": 38.0
+      },
+      "top5": [
+        {
+          "freq": "biweekly",
+          "top_n": 15,
+          "entry": 40,
+          "exit": 25,
+          "force_cash": 30,
+          "sharpe": 4.217,
+          "total_return": 59.86,
+          "annual_return": 428.56,
+          "max_drawdown": 27.63,
+          "calmar": 15.509,
+          "win_rate": 38.0
+        },
+        {
+          "freq": "biweekly",
+          "top_n": 13,
+          "entry": 40,
+          "exit": 25,
+          "force_cash": 30,
+          "sharpe": 3.684,
+          "total_return": 55.01,
+          "annual_return": 373.9,
+          "max_drawdown": 27.63,
+          "calmar": 13.531,
+          "win_rate": 38.0
+        },
+        {
+          "freq": "biweekly",
+          "top_n": 15,
+          "entry": 40,
+          "exit": 35,
+          "force_cash": 30,
+          "sharpe": 2.662,
+          "total_return": 44.67,
+          "annual_return": 270.88,
+          "max_drawdown": 27.63,
+          "calmar": 9.803,
+          "win_rate": 33.8
+        },
+        {
+          "freq": "biweekly",
+          "top_n": 15,
+          "entry": 40,
+          "exit": 40,
+          "force_cash": 30,
+          "sharpe": 2.514,
+          "total_return": 43.06,
+          "annual_return": 256.39,
+          "max_drawdown": 27.63,
+          "calmar": 9.278,
+          "win_rate": 35.2
+        },
+        {
+          "freq": "biweekly",
+          "top_n": 15,
+          "entry": 40,
+          "exit": 45,
+          "force_cash": 30,
+          "sharpe": 2.514,
+          "total_return": 43.06,
+          "annual_return": 256.39,
+          "max_drawdown": 27.63,
+          "calmar": 9.278,
+          "win_rate": 35.2
+        }
+      ],
+      "plateau": {
+        "best": {
+          "freq": "biweekly",
+          "top_n": 15,
+          "entry": 40,
+          "exit": 25,
+          "force_cash": 30,
+          "sharpe": 4.217,
+          "total_return": 59.86,
+          "annual_return": 428.56,
+          "max_drawdown": 27.63,
+          "calmar": 15.509,
+          "win_rate": 38.0
+        },
+        "best_val": 4.217,
+        "threshold": 4.117,
+        "n_good": 1,
+        "n_total": 1350,
+        "good_pct": 0.1,
+        "plateau": {
+          "top_n": [
+            15,
+            15
+          ],
+          "entry": [
+            40,
+            40
+          ],
+          "exit": [
+            25,
+            25
+          ],
+          "fc": [
+            30,
+            30
+          ]
+        },
+        "suggested": {
+          "top_n": 15,
+          "entry": 40,
+          "exit": 25,
+          "force_cash": 30
+        }
+      }
+    },
+    "monthly": {
+      "label": "月频",
+      "n_rebalances": 36,
+      "best": {
+        "freq": "monthly",
+        "top_n": 10,
+        "entry": 35,
+        "exit": 45,
+        "force_cash": 45,
+        "sharpe": 0.579,
+        "total_return": 7.45,
+        "annual_return": 65.36,
+        "max_drawdown": 28.08,
+        "calmar": 2.327,
+        "win_rate": 36.1
+      },
+      "top5": [
+        {
+          "freq": "monthly",
+          "top_n": 10,
+          "entry": 35,
+          "exit": 45,
+          "force_cash": 45,
+          "sharpe": 0.579,
+          "total_return": 7.45,
+          "annual_return": 65.36,
+          "max_drawdown": 28.08,
+          "calmar": 2.327,
+          "win_rate": 36.1
+        },
+        {
+          "freq": "monthly",
+          "top_n": 10,
+          "entry": 35,
+          "exit": 30,
+          "force_cash": 45,
+          "sharpe": 0.484,
+          "total_return": 6.42,
+          "annual_return": 54.54,
+          "max_drawdown": 28.39,
+          "calmar": 1.921,
+          "win_rate": 36.1
+        },
+        {
+          "freq": "monthly",
+          "top_n": 10,
+          "entry": 35,
+          "exit": 40,
+          "force_cash": 45,
+          "sharpe": 0.436,
+          "total_return": 5.9,
+          "annual_return": 49.41,
+          "max_drawdown": 28.24,
+          "calmar": 1.749,
+          "win_rate": 36.1
+        },
+        {
+          "freq": "monthly",
+          "top_n": 10,
+          "entry": 35,
+          "exit": 35,
+          "force_cash": 45,
+          "sharpe": 0.278,
+          "total_return": 4.06,
+          "annual_return": 32.16,
+          "max_drawdown": 28.32,
+          "calmar": 1.136,
+          "win_rate": 36.1
+        },
+        {
+          "freq": "monthly",
+          "top_n": 10,
+          "entry": 40,
+          "exit": 30,
+          "force_cash": 45,
+          "sharpe": 0.156,
+          "total_return": 2.93,
+          "annual_return": 22.44,
+          "max_drawdown": 32.56,
+          "calmar": 0.689,
+          "win_rate": 36.1
+        }
+      ],
+      "plateau": {
+        "best": {
+          "freq": "monthly",
+          "top_n": 10,
+          "entry": 35,
+          "exit": 45,
+          "force_cash": 45,
+          "sharpe": 0.579,
+          "total_return": 7.45,
+          "annual_return": 65.36,
+          "max_drawdown": 28.08,
+          "calmar": 2.327,
+          "win_rate": 36.1
+        },
+        "best_val": 0.579,
+        "threshold": 0.479,
+        "n_good": 2,
+        "n_total": 1350,
+        "good_pct": 0.1,
+        "plateau": {
+          "top_n": [
+            10,
+            10
+          ],
+          "entry": [
+            35,
+            35
+          ],
+          "exit": [
+            30,
+            45
+          ],
+          "fc": [
+            45,
+            45
+          ]
+        },
+        "suggested": {
+          "top_n": 10,
+          "entry": 35,
+          "exit": 45,
+          "force_cash": 45
+        }
+      }
+    }
+  }
+}

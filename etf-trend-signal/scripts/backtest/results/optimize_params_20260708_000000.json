@@ -1,0 +1,209 @@
+{
+  "date": "2026-07-08",
+  "grid_params": {
+    "top_n": [
+      3,
+      5,
+      7,
+      10,
+      13,
+      15
+    ],
+    "entry": [
+      30,
+      35,
+      40,
+      45,
+      50,
+      55
+    ],
+    "exit": [
+      25,
+      30,
+      35,
+      40,
+      45
+    ],
+    "force_cash": [
+      30,
+      35,
+      40,
+      45,
+      50
+    ]
+  },
+  "plateau": {
+    "best": {
+      "top_n": 3,
+      "entry": 55,
+      "exit": 25,
+      "force_cash": 30,
+      "sharpe": 1.634,
+      "total_return": 156.23,
+      "annual_return": 41.48,
+      "max_drawdown": 13.2,
+      "calmar": 3.143,
+      "win_rate": 24.8,
+      "profit_factor": 2.59
+    },
+    "best_val": 1.634,
+    "threshold": 1.5839999999999999,
+    "n_good": 1,
+    "n_total": 900,
+    "plateau_top_n": [
+      3,
+      3
+    ],
+    "plateau_entry": [
+      55,
+      55
+    ],
+    "plateau_exit": [
+      25,
+      25
+    ],
+    "plateau_force_cash": [
+      30,
+      30
+    ],
+    "best_single_param": {
+      "top_n": 3,
+      "entry": 55,
+      "exit": 25,
+      "force_cash": 30
+    }
+  },
+  "top10": [
+    {
+      "top_n": 3,
+      "entry": 55,
+      "exit": 25,
+      "force_cash": 30,
+      "sharpe": 1.634,
+      "total_return": 156.23,
+      "annual_return": 41.48,
+      "max_drawdown": 13.2,
+      "calmar": 3.143,
+      "win_rate": 24.8,
+      "profit_factor": 2.59
+    },
+    {
+      "top_n": 3,
+      "entry": 55,
+      "exit": 30,
+      "force_cash": 30,
+      "sharpe": 1.502,
+      "total_return": 149.56,
+      "annual_return": 40.11,
+      "max_drawdown": 13.2,
+      "calmar": 3.039,
+      "win_rate": 22.0,
+      "profit_factor": 2.51
+    },
+    {
+      "top_n": 3,
+      "entry": 55,
+      "exit": 35,
+      "force_cash": 30,
+      "sharpe": 1.502,
+      "total_return": 149.56,
+      "annual_return": 40.11,
+      "max_drawdown": 13.2,
+      "calmar": 3.039,
+      "win_rate": 22.0,
+      "profit_factor": 2.51
+    },
+    {
+      "top_n": 3,
+      "entry": 55,
+      "exit": 25,
+      "force_cash": 40,
+      "sharpe": 1.38,
+      "total_return": 109.89,
+      "annual_return": 31.45,
+      "max_drawdown": 13.2,
+      "calmar": 2.383,
+      "win_rate": 23.4,
+      "profit_factor": 2.33
+    },
+    {
+      "top_n": 3,
+      "entry": 55,
+      "exit": 25,
+      "force_cash": 35,
+      "sharpe": 1.36,
+      "total_return": 113.42,
+      "annual_return": 32.26,
+      "max_drawdown": 13.2,
+      "calmar": 2.444,
+      "win_rate": 25.5,
+      "profit_factor": 2.2
+    },
+    {
+      "top_n": 3,
+      "entry": 55,
+      "exit": 40,
+      "force_cash": 30,
+      "sharpe": 1.321,
+      "total_return": 132.09,
+      "annual_return": 36.41,
+      "max_drawdown": 19.27,
+      "calmar": 1.889,
+      "win_rate": 22.0,
+      "profit_factor": 2.27
+    },
+    {
+      "top_n": 3,
+      "entry": 55,
+      "exit": 30,
+      "force_cash": 40,
+      "sharpe": 1.272,
+      "total_return": 107.55,
+      "annual_return": 30.9,
+      "max_drawdown": 13.2,
+      "calmar": 2.341,
+      "win_rate": 20.6,
+      "profit_factor": 2.29
+    },
+    {
+      "top_n": 3,
+      "entry": 55,
+      "exit": 30,
+      "force_cash": 35,
+      "sharpe": 1.27,
+      "total_return": 107.35,
+      "annual_return": 30.86,
+      "max_drawdown": 13.2,
+      "calmar": 2.338,
+      "win_rate": 20.6,
+      "profit_factor": 2.29
+    },
+    {
+      "top_n": 3,
+      "entry": 55,
+      "exit": 45,
+      "force_cash": 30,
+      "sharpe": 1.261,
+      "total_return": 122.75,
+      "annual_return": 34.36,
+      "max_drawdown": 19.27,
+      "calmar": 1.783,
+      "win_rate": 21.3,
+      "profit_factor": 2.19
+    },
+    {
+      "top_n": 3,
+      "entry": 55,
+      "exit": 35,
+      "force_cash": 35,
+      "sharpe": 1.253,
+      "total_return": 106.65,
+      "annual_return": 30.69,
+      "max_drawdown": 13.2,
+      "calmar": 2.326,
+      "win_rate": 20.6,
+      "profit_factor": 2.29
+    }
+  ],
+  "n_total": 900
+}

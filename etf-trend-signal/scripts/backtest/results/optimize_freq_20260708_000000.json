@@ -1,0 +1,531 @@
+{
+  "date": "2026-07-08",
+  "fixed_params": {
+    "entry": 55,
+    "exit": 30,
+    "force_cash": 35
+  },
+  "top_n_grid": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    7,
+    10,
+    13,
+    15
+  ],
+  "frequencies": [
+    {
+      "freq": "daily",
+      "label": "日频",
+      "best_top_n": 7,
+      "sharpe": 0.048,
+      "annual_return": 3.87,
+      "max_drawdown": 43.98,
+      "calmar": 0.088,
+      "win_rate": 19.9,
+      "n_rebalances": 690
+    },
+    {
+      "freq": "weekly",
+      "label": "周频",
+      "best_top_n": 3,
+      "sharpe": 3.725,
+      "annual_return": 188.04,
+      "max_drawdown": 13.2,
+      "calmar": 14.247,
+      "win_rate": 19.9,
+      "n_rebalances": 141
+    },
+    {
+      "freq": "biweekly",
+      "label": "双周频",
+      "best_top_n": 13,
+      "sharpe": -0.582,
+      "annual_return": -99.45,
+      "max_drawdown": 79.03,
+      "calmar": -1.258,
+      "win_rate": 16.9,
+      "n_rebalances": 71
+    },
+    {
+      "freq": "monthly",
+      "label": "月频",
+      "best_top_n": 10,
+      "sharpe": -0.461,
+      "annual_return": -99.78,
+      "max_drawdown": 58.19,
+      "calmar": -1.715,
+      "win_rate": 16.7,
+      "n_rebalances": 36
+    }
+  ],
+  "freq_details": {
+    "daily": {
+      "label": "日频",
+      "n_rebalances": 690,
+      "results": [
+        {
+          "top_n": 7,
+          "sharpe": 0.048,
+          "total_return": 10.95,
+          "annual_return": 3.87,
+          "max_drawdown": 43.98,
+          "calmar": 0.088,
+          "win_rate": 19.9,
+          "profit_factor": 1.09,
+          "n_periods": 690
+        },
+        {
+          "top_n": 15,
+          "sharpe": -0.224,
+          "total_return": -21.79,
+          "annual_return": -8.58,
+          "max_drawdown": 60.28,
+          "calmar": -0.142,
+          "win_rate": 21.0,
+          "profit_factor": 1.03,
+          "n_periods": 690
+        },
+        {
+          "top_n": 4,
+          "sharpe": -0.242,
+          "total_return": -22.9,
+          "annual_return": -9.06,
+          "max_drawdown": 58.71,
+          "calmar": -0.154,
+          "win_rate": 19.7,
+          "profit_factor": 1.03,
+          "n_periods": 690
+        },
+        {
+          "top_n": 5,
+          "sharpe": -0.242,
+          "total_return": -22.9,
+          "annual_return": -9.06,
+          "max_drawdown": 58.71,
+          "calmar": -0.154,
+          "win_rate": 19.7,
+          "profit_factor": 1.03,
+          "n_periods": 690
+        },
+        {
+          "top_n": 2,
+          "sharpe": -0.261,
+          "total_return": -24.91,
+          "annual_return": -9.94,
+          "max_drawdown": 59.36,
+          "calmar": -0.167,
+          "win_rate": 19.7,
+          "profit_factor": 1.02,
+          "n_periods": 690
+        },
+        {
+          "top_n": 1,
+          "sharpe": -0.264,
+          "total_return": -25.3,
+          "annual_return": -10.1,
+          "max_drawdown": 58.59,
+          "calmar": -0.172,
+          "win_rate": 19.3,
+          "profit_factor": 1.02,
+          "n_periods": 690
+        },
+        {
+          "top_n": 3,
+          "sharpe": -0.265,
+          "total_return": -25.41,
+          "annual_return": -10.15,
+          "max_drawdown": 60.05,
+          "calmar": -0.169,
+          "win_rate": 19.9,
+          "profit_factor": 1.02,
+          "n_periods": 690
+        },
+        {
+          "top_n": 10,
+          "sharpe": -0.282,
+          "total_return": -27.04,
+          "annual_return": -10.87,
+          "max_drawdown": 61.99,
+          "calmar": -0.175,
+          "win_rate": 20.3,
+          "profit_factor": 1.01,
+          "n_periods": 690
+        },
+        {
+          "top_n": 13,
+          "sharpe": -0.311,
+          "total_return": -30.07,
+          "annual_return": -12.24,
+          "max_drawdown": 63.56,
+          "calmar": -0.193,
+          "win_rate": 20.6,
+          "profit_factor": 1.0,
+          "n_periods": 690
+        }
+      ],
+      "best": {
+        "top_n": 7,
+        "sharpe": 0.048,
+        "total_return": 10.95,
+        "annual_return": 3.87,
+        "max_drawdown": 43.98,
+        "calmar": 0.088,
+        "win_rate": 19.9,
+        "profit_factor": 1.09,
+        "n_periods": 690
+      }
+    },
+    "weekly": {
+      "label": "周频",
+      "n_rebalances": 141,
+      "results": [
+        {
+          "top_n": 3,
+          "sharpe": 3.725,
+          "total_return": 80.75,
+          "annual_return": 188.04,
+          "max_drawdown": 13.2,
+          "calmar": 14.247,
+          "win_rate": 19.9,
+          "profit_factor": 1.95,
+          "n_periods": 141
+        },
+        {
+          "top_n": 2,
+          "sharpe": 3.5,
+          "total_return": 77.12,
+          "annual_return": 177.77,
+          "max_drawdown": 13.2,
+          "calmar": 13.47,
+          "win_rate": 19.9,
+          "profit_factor": 1.91,
+          "n_periods": 141
+        },
+        {
+          "top_n": 1,
+          "sharpe": 2.731,
+          "total_return": 63.83,
+          "annual_return": 141.65,
+          "max_drawdown": 13.77,
+          "calmar": 10.287,
+          "win_rate": 18.4,
+          "profit_factor": 1.73,
+          "n_periods": 141
+        },
+        {
+          "top_n": 7,
+          "sharpe": 1.05,
+          "total_return": 33.44,
+          "annual_return": 67.47,
+          "max_drawdown": 28.79,
+          "calmar": 2.343,
+          "win_rate": 20.6,
+          "profit_factor": 1.43,
+          "n_periods": 141
+        },
+        {
+          "top_n": 5,
+          "sharpe": 0.911,
+          "total_return": 29.64,
+          "annual_return": 59.04,
+          "max_drawdown": 30.58,
+          "calmar": 1.931,
+          "win_rate": 20.6,
+          "profit_factor": 1.39,
+          "n_periods": 141
+        },
+        {
+          "top_n": 4,
+          "sharpe": 0.804,
+          "total_return": 26.53,
+          "annual_return": 52.29,
+          "max_drawdown": 30.58,
+          "calmar": 1.71,
+          "win_rate": 19.9,
+          "profit_factor": 1.36,
+          "n_periods": 141
+        },
+        {
+          "top_n": 10,
+          "sharpe": 0.149,
+          "total_return": 6.35,
+          "annual_return": 11.64,
+          "max_drawdown": 32.49,
+          "calmar": 0.358,
+          "win_rate": 23.4,
+          "profit_factor": 1.16,
+          "n_periods": 141
+        },
+        {
+          "top_n": 13,
+          "sharpe": 0.148,
+          "total_return": 6.34,
+          "annual_return": 11.61,
+          "max_drawdown": 32.49,
+          "calmar": 0.357,
+          "win_rate": 22.7,
+          "profit_factor": 1.15,
+          "n_periods": 141
+        },
+        {
+          "top_n": 15,
+          "sharpe": -0.782,
+          "total_return": -65.32,
+          "annual_return": -84.93,
+          "max_drawdown": 75.34,
+          "calmar": -1.127,
+          "win_rate": 22.0,
+          "profit_factor": 0.74,
+          "n_periods": 141
+        }
+      ],
+      "best": {
+        "top_n": 3,
+        "sharpe": 3.725,
+        "total_return": 80.75,
+        "annual_return": 188.04,
+        "max_drawdown": 13.2,
+        "calmar": 14.247,
+        "win_rate": 19.9,
+        "profit_factor": 1.95,
+        "n_periods": 141
+      }
+    },
+    "biweekly": {
+      "label": "双周频",
+      "n_rebalances": 71,
+      "results": [
+        {
+          "top_n": 13,
+          "sharpe": -0.582,
+          "total_return": -76.96,
+          "annual_return": -99.45,
+          "max_drawdown": 79.03,
+          "calmar": -1.258,
+          "win_rate": 16.9,
+          "profit_factor": 0.53,
+          "n_periods": 71
+        },
+        {
+          "top_n": 7,
+          "sharpe": -0.583,
+          "total_return": -73.87,
+          "annual_return": -99.15,
+          "max_drawdown": 79.03,
+          "calmar": -1.255,
+          "win_rate": 15.5,
+          "profit_factor": 0.57,
+          "n_periods": 71
+        },
+        {
+          "top_n": 10,
+          "sharpe": -0.583,
+          "total_return": -75.13,
+          "annual_return": -99.28,
+          "max_drawdown": 79.03,
+          "calmar": -1.256,
+          "win_rate": 16.9,
+          "profit_factor": 0.55,
+          "n_periods": 71
+        },
+        {
+          "top_n": 15,
+          "sharpe": -0.583,
+          "total_return": -77.16,
+          "annual_return": -99.47,
+          "max_drawdown": 79.03,
+          "calmar": -1.259,
+          "win_rate": 16.9,
+          "profit_factor": 0.52,
+          "n_periods": 71
+        },
+        {
+          "top_n": 4,
+          "sharpe": -0.585,
+          "total_return": -74.76,
+          "annual_return": -99.25,
+          "max_drawdown": 79.03,
+          "calmar": -1.256,
+          "win_rate": 14.1,
+          "profit_factor": 0.54,
+          "n_periods": 71
+        },
+        {
+          "top_n": 5,
+          "sharpe": -0.586,
+          "total_return": -75.13,
+          "annual_return": -99.28,
+          "max_drawdown": 79.03,
+          "calmar": -1.256,
+          "win_rate": 14.1,
+          "profit_factor": 0.53,
+          "n_periods": 71
+        },
+        {
+          "top_n": 3,
+          "sharpe": -0.639,
+          "total_return": -48.62,
+          "annual_return": -90.59,
+          "max_drawdown": 67.47,
+          "calmar": -1.343,
+          "win_rate": 15.5,
+          "profit_factor": 0.83,
+          "n_periods": 71
+        },
+        {
+          "top_n": 2,
+          "sharpe": -0.644,
+          "total_return": -49.63,
+          "annual_return": -91.23,
+          "max_drawdown": 67.47,
+          "calmar": -1.352,
+          "win_rate": 14.1,
+          "profit_factor": 0.81,
+          "n_periods": 71
+        },
+        {
+          "top_n": 1,
+          "sharpe": -0.663,
+          "total_return": -53.05,
+          "annual_return": -93.17,
+          "max_drawdown": 67.47,
+          "calmar": -1.381,
+          "win_rate": 12.7,
+          "profit_factor": 0.73,
+          "n_periods": 71
+        }
+      ],
+      "best": {
+        "top_n": 13,
+        "sharpe": -0.582,
+        "total_return": -76.96,
+        "annual_return": -99.45,
+        "max_drawdown": 79.03,
+        "calmar": -1.258,
+        "win_rate": 16.9,
+        "profit_factor": 0.53,
+        "n_periods": 71
+      }
+    },
+    "monthly": {
+      "label": "月频",
+      "n_rebalances": 36,
+      "results": [
+        {
+          "top_n": 10,
+          "sharpe": -0.461,
+          "total_return": -58.19,
+          "annual_return": -99.78,
+          "max_drawdown": 58.19,
+          "calmar": -1.715,
+          "win_rate": 16.7,
+          "profit_factor": 0.68,
+          "n_periods": 36
+        },
+        {
+          "top_n": 13,
+          "sharpe": -0.461,
+          "total_return": -58.19,
+          "annual_return": -99.78,
+          "max_drawdown": 58.19,
+          "calmar": -1.715,
+          "win_rate": 16.7,
+          "profit_factor": 0.68,
+          "n_periods": 36
+        },
+        {
+          "top_n": 15,
+          "sharpe": -0.464,
+          "total_return": -59.24,
+          "annual_return": -99.81,
+          "max_drawdown": 59.24,
+          "calmar": -1.685,
+          "win_rate": 16.7,
+          "profit_factor": 0.65,
+          "n_periods": 36
+        },
+        {
+          "top_n": 1,
+          "sharpe": -0.471,
+          "total_return": -66.28,
+          "annual_return": -99.95,
+          "max_drawdown": 66.28,
+          "calmar": -1.508,
+          "win_rate": 13.9,
+          "profit_factor": 0.52,
+          "n_periods": 36
+        },
+        {
+          "top_n": 2,
+          "sharpe": -0.474,
+          "total_return": -65.15,
+          "annual_return": -99.94,
+          "max_drawdown": 65.15,
+          "calmar": -1.534,
+          "win_rate": 13.9,
+          "profit_factor": 0.53,
+          "n_periods": 36
+        },
+        {
+          "top_n": 3,
+          "sharpe": -0.475,
+          "total_return": -64.66,
+          "annual_return": -99.93,
+          "max_drawdown": 64.66,
+          "calmar": -1.545,
+          "win_rate": 13.9,
+          "profit_factor": 0.53,
+          "n_periods": 36
+        },
+        {
+          "top_n": 4,
+          "sharpe": -0.475,
+          "total_return": -64.66,
+          "annual_return": -99.93,
+          "max_drawdown": 64.66,
+          "calmar": -1.545,
+          "win_rate": 13.9,
+          "profit_factor": 0.53,
+          "n_periods": 36
+        },
+        {
+          "top_n": 5,
+          "sharpe": -0.475,
+          "total_return": -64.66,
+          "annual_return": -99.93,
+          "max_drawdown": 64.66,
+          "calmar": -1.545,
+          "win_rate": 13.9,
+          "profit_factor": 0.53,
+          "n_periods": 36
+        },
+        {
+          "top_n": 7,
+          "sharpe": -0.475,
+          "total_return": -64.66,
+          "annual_return": -99.93,
+          "max_drawdown": 64.66,
+          "calmar": -1.545,
+          "win_rate": 13.9,
+          "profit_factor": 0.53,
+          "n_periods": 36
+        }
+      ],
+      "best": {
+        "top_n": 10,
+        "sharpe": -0.461,
+        "total_return": -58.19,
+        "annual_return": -99.78,
+        "max_drawdown": 58.19,
+        "calmar": -1.715,
+        "win_rate": 16.7,
+        "profit_factor": 0.68,
+        "n_periods": 36
+      }
+    }
+  }
+}

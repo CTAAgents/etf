@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-ETF通道突破策略全行业扫描 v2.1 — 纯多头模式
+ETF通道突破策略全行业扫描 v2.3 — 纯多头模式
 ===================================================
-独立调用：python scan_all.py [--output <dir>]
+独立调用：python scan_all.py [--output <dir>] [--source westock|tdx]
 
-数据源：通达信TQ-Local（纯本地数据，无AKShare依赖）
+数据源：腾讯自选股 westock-mcp（默认，前复权日线）| 通达信TQ-Local（--source tdx）
 评分：Layer A唐奇安通道(75%) + Layer B布林带(25%) + 成交量确认
 输出：JSON + HTML报表（仅多头信号）
 
@@ -35,7 +35,7 @@ except ImportError:
 
 
 def collect_all_etf_klines(collector: EtfDataCollector, symbols: list = None):
-    """采集所有ETF的K线数据（纯TDX）。"""
+    """采集所有ETF的K线数据。"""
     mapping = symbols if symbols is not None else SECTOR_ETF_MAPPING
     print("\n[1] ETF数据采集...")
     etf_data = {}
@@ -60,24 +60,27 @@ def collect_all_etf_klines(collector: EtfDataCollector, symbols: list = None):
     return etf_data
 
 
-def run_scan(output_dir: str = None, output_prefix: str = "etf_scan", symbols: list = None) -> dict:
-    """执行全行业ETF扫描（纯多头模式·通道突破策略 v2.1）。"""
+def run_scan(output_dir: str = None, output_prefix: str = "etf_scan", symbols: list = None,
+             source: str = 'westock', cache_path: str = None) -> dict:
+    """执行全行业ETF扫描（纯多头模式·通道突破策略 v2.3）。"""
     today = date.today()
     today_str = today.strftime('%Y%m%d')
+
+    source_label = '腾讯自选股 westock-mcp' if source == 'westock' else '通达信TQ-Local'
 
     if symbols:
         quick_names = [s[0] for s in symbols]
         print(f"{'='*60}")
-        print(f"ETF通道突破策略扫描 v2.1 — {today} (快速模式: {len(symbols)}/{len(SECTOR_ETF_MAPPING)}个)")
-        print(f"数据源: 通达信TQ-Local (http://127.0.0.1:17709/)")
+        print(f"ETF通道突破策略扫描 v2.3 — {today} (快速模式: {len(symbols)}/{len(SECTOR_ETF_MAPPING)}个)")
+        print(f"数据源: {source_label}")
     else:
         print(f"{'='*60}")
-        print(f"ETF通道突破策略扫描 v2.1 — {today} (全{len(SECTOR_ETF_MAPPING)}行业)")
-        print(f"数据源: 通达信TQ-Local (http://127.0.0.1:17709/)")
+        print(f"ETF通道突破策略扫描 v2.3 — {today} (全{len(SECTOR_ETF_MAPPING)}行业)")
+        print(f"数据源: {source_label}")
         print(f"{'='*60}")
 
     # Step 1: 数据采集
-    collector = EtfDataCollector()
+    collector = EtfDataCollector(source=source, cache_path=cache_path)
     etf_data = collect_all_etf_klines(collector, symbols=symbols)
 
     if not etf_data:
@@ -182,8 +185,8 @@ def run_scan(output_dir: str = None, output_prefix: str = "etf_scan", symbols: l
     summary = {
         '_meta': {
             'date': today_str, 'total': len(results), 'bull': len(results),
-            'source': '通达信TQ-Local', 'strategy': 'channel_breakout_v2.1',
-            'version': '2.1.0',
+            'source': source_label, 'strategy': 'channel_breakout_v2.3',
+            'version': '2.3.0',
             'mode': 'bull_only',
         },
         'bull_signals': all_ranked,
@@ -228,7 +231,7 @@ def run_scan(output_dir: str = None, output_prefix: str = "etf_scan", symbols: l
         has_signals = len(all_ranked) > 0
 
         html = f'''<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8">
-<title>ETF多头信号 — {today} (v2.1)</title>
+<title>ETF多头信号 — {today} (v2.3)</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}body{{background:#0f1117;color:#e5e7eb;font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:24px}}
 .hd{{background:linear-gradient(135deg,#1a1d28,#252940);border-radius:12px;padding:24px 28px;margin-bottom:20px;border:1px solid #2a2d3a}}
@@ -356,11 +359,14 @@ render();
 
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description='ETF通道突破策略扫描 v2.1 — 纯多头模式（通达信TQ-Local）')
+    parser = argparse.ArgumentParser(description='ETF通道突破策略扫描 v2.2 — 纯多头模式（默认腾讯自选股）')
     parser.add_argument('--output', '-o', help='输出目录', default=None)
     parser.add_argument('--prefix', '-p', help='文件名前缀', default='etf_bull')
     parser.add_argument('--quick', '-q', type=int, default=0,
                         help='快速模式：只扫描前N个行业')
+    parser.add_argument('--source', '-s', default='westock', choices=['westock', 'tdx'],
+                       help='数据源（默认westock）')
+    parser.add_argument('--cache', help='westock缓存文件路径')
     args = parser.parse_args()
 
     OUT = args.output
@@ -374,4 +380,5 @@ if __name__ == '__main__':
         target_symbols = SECTOR_ETF_MAPPING[:q]
         print(f"\n⚡ 快速模式: 仅扫描前{q}个行业 ({[s[0] for s in target_symbols]})")
 
-    run_scan(output_dir=OUT, output_prefix=args.prefix, symbols=target_symbols)
+    run_scan(output_dir=OUT, output_prefix=args.prefix, symbols=target_symbols,
+             source=args.source, cache_path=args.cache)
