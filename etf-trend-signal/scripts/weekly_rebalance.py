@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-ETF周频调仓信号生成器 v1.0
+ETF周频调仓信号生成器 v2.5.0
 ================================
-每周三收盘后计算信号，周四开盘执行。
+周五盘后计算信号，周一开盘执行。
+v2.5.0: ATR 1.0× + 沪深300 120日相对动量过滤
 
 === 两部分架构 ===
 
@@ -75,10 +76,10 @@ __all__ = [
 # ══════════════════════════════════════════════════════════════
 # 配置
 # ══════════════════════════════════════════════════════════════
-TOP_N = 3                  # 优化: 3 (网格搜索900组最优)
-SCORE_ENTRY_THRESHOLD = 55  # 优化: 55 (网格搜索900组最优)
-SCORE_EXIT_THRESHOLD = 30   # 优化: 30 (平原25~40,取中点)
-FORCE_CASH_THRESHOLD = 35   # 优化: 35 (平原30~40,取中点)
+TOP_N = 2                  # 优化: 2 (v2.5.0)
+SCORE_ENTRY_THRESHOLD = 55  # 优化: 55 (v2.5.0)
+SCORE_EXIT_THRESHOLD = 25   # 优化: 25 (v2.5.0)
+FORCE_CASH_THRESHOLD = 30   # 优化: 30 (v2.5.0)
 
 # 行业→ETF代码快速查找
 SECTOR_TO_ETF = {s[0]: s[2] for s in SECTOR_ETF_MAPPING}
@@ -165,6 +166,48 @@ def compute_rebalance(scan_results: dict,
                 'max_bull_score': max_bull_score,
             },
         }
+
+    # ── Step 1.6: 沪深300相对动量过滤 (v2.5.0) ──
+    # 沪深300指数120日回报 ≤ 0 时禁止入场
+    hs300_momentum = scan_results.get('hs300_momentum', {})
+    if hs300_momentum.get('enabled', True) and not force_cash:
+        hs300_ret = hs300_momentum.get('return_120d', None)
+        if hs300_ret is not None and hs300_ret <= 0:
+            force_cash = True
+            actions = []
+            for sector, old_pct in current_holdings.items():
+                if old_pct > 0:
+                    actions.append({
+                        'sector': sector,
+                        'etf_code': SECTOR_TO_ETF.get(sector, ''),
+                        'action': 'SELL',
+                        'reason': f'HS300 120日回报={hs300_ret:.1%}≤0，动量过滤空仓',
+                        'old_pct': old_pct,
+                        'new_pct': 0.0,
+                    })
+            return {
+                'date': today_str,
+                'force_cash': True,
+                'force_cash_reason': f'沪深300 120日相对动量={hs300_ret:.1%}≤0，动量过滤触发强制空仓',
+                'target_pool': [],
+                'actions': actions,
+                'final_positions': {},
+                'hs300_momentum_triggered': True,
+                'summary': {
+                    'date': today_str,
+                    'total_sectors_scanned': len(bull_sorted),
+                    'target_pool_size': 0,
+                    'held_sectors': len(current_holdings),
+                    'keep_sectors': 0,
+                    'sell_sectors': len(actions),
+                    'new_buys': 0,
+                    'final_positions_count': 0,
+                    'total_allocation': 0.0,
+                    'force_cash': True,
+                    'hs300_momentum_triggered': True,
+                    'max_bull_score': max_bull_score,
+                },
+            }
 
     # ── Step 2: 构建候选池（TOP5 且 总分>50）──
     target_pool = []
@@ -353,6 +396,38 @@ def save_latest_plan(plan_data: dict, report_dir: str = None):
             json.dump(plan_data, f, ensure_ascii=False, indent=2, default=str)
 
 
+def _check_hs300_momentum(source: str = 'tdx') -> dict:
+    """检查沪深300相对动量（120日回报）。
+
+    用于HS300动量过滤：指数120日回报≤0时禁止入场。
+    返回 dict 包含 enabled, return_120d, close_now, close_120d_ago。
+    """
+    result = {'enabled': True, 'return_120d': None}
+    try:
+        from collect_data import EtfDataCollector
+        collector = EtfDataCollector(source=source)
+        kl = collector.get_etf_klines('沪深300', '510300.SH', days=180)
+        if kl and len(kl) >= 121:
+            c_now = float(kl[-1]['close'])
+            c_120 = float(kl[-121]['close'])
+            if c_120 > 0:
+                ret = (c_now - c_120) / c_120
+                result['return_120d'] = round(ret, 6)
+                result['close_now'] = c_now
+                result['close_120d_ago'] = c_120
+                print(f'    沪深300 120日回报: {ret*100:+.2f}%', flush=True)
+            else:
+                print(f'    沪深300数据异常（close_120={c_120}），跳过动量过滤', flush=True)
+                return {'enabled': True, 'return_120d': 999.0}
+        else:
+            print(f'    沪深300数据不足，跳过动量过滤', flush=True)
+            return {'enabled': True, 'return_120d': 999.0}
+    except Exception as e:
+        print(f'    沪深300动量过滤加载失败: {e}，跳过', flush=True)
+        result = {'enabled': True, 'return_120d': 999.0}
+    return result
+
+
 def load_latest_plan() -> dict:
     """加载最近一次保存的调仓计划（用于 --execute）。"""
     if os.path.exists(LATEST_PLAN_PATH):
@@ -411,6 +486,10 @@ def _run_calc_only(holdings_path: str, output_dir: str, dry_run: bool,
 
     print(f'\n[2] 全行业扫描...')
     scan = run_scan(source=source, cache_path=cache_path)
+
+    # 沪深300相对动量过滤数据 (v2.5.0)
+    hs300_m = _check_hs300_momentum(source)
+    scan['hs300_momentum'] = hs300_m
 
     print(f'\n[3] 调仓计算...')
     plan = compute_rebalance(scan, current)
