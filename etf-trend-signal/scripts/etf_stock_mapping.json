@@ -1,0 +1,295 @@
+{
+  "_meta": {
+    "updated": "2026-07-08",
+    "description": "31个行业ETF → 前3大持仓股票映射。定期通过 westock MCP data_etf holdings 更新。",
+    "update_command": "通过 westock MCP: data_etf holdings <etf_code> 获取最新持仓"
+  },
+  "512800.SH": {
+    "name": "银行ETF",
+    "sector": "银行",
+    "stocks": [
+      {"code": "600036", "name": "招商银行", "weight": 15.5},
+      {"code": "601166", "name": "兴业银行", "weight": 8.2},
+      {"code": "000001", "name": "平安银行", "weight": 5.8}
+    ]
+  },
+  "512070.SH": {
+    "name": "非银ETF",
+    "sector": "非银金融",
+    "stocks": [
+      {"code": "601318", "name": "中国平安", "weight": 14.2},
+      {"code": "600030", "name": "中信证券", "weight": 9.5},
+      {"code": "601688", "name": "华泰证券", "weight": 5.6}
+    ]
+  },
+  "512880.SH": {
+    "name": "证券ETF",
+    "sector": "证券",
+    "stocks": [
+      {"code": "600030", "name": "中信证券", "weight": 13.8},
+      {"code": "300059", "name": "东方财富", "weight": 10.2},
+      {"code": "601688", "name": "华泰证券", "weight": 6.5}
+    ]
+  },
+  "512230.SH": {
+    "name": "保险ETF",
+    "sector": "保险",
+    "stocks": [
+      {"code": "601318", "name": "中国平安", "weight": 28.5},
+      {"code": "601628", "name": "中国人寿", "weight": 12.3},
+      {"code": "601601", "name": "中国太保", "weight": 9.8}
+    ]
+  },
+  "512200.SH": {
+    "name": "房地产ETF",
+    "sector": "房地产",
+    "stocks": [
+      {"code": "600048", "name": "保利发展", "weight": 12.1},
+      {"code": "001979", "name": "招商蛇口", "weight": 8.5},
+      {"code": "600383", "name": "金地集团", "weight": 6.2}
+    ]
+  },
+  "515170.SH": {
+    "name": "食品饮料ETF",
+    "sector": "食品饮料",
+    "stocks": [
+      {"code": "600519", "name": "贵州茅台", "weight": 15.8},
+      {"code": "000858", "name": "五粮液", "weight": 12.5},
+      {"code": "600887", "name": "伊利股份", "weight": 8.2}
+    ]
+  },
+  "512690.SH": {
+    "name": "酒ETF",
+    "sector": "白酒",
+    "stocks": [
+      {"code": "600519", "name": "贵州茅台", "weight": 18.5},
+      {"code": "000858", "name": "五粮液", "weight": 15.2},
+      {"code": "000568", "name": "泸州老窖", "weight": 9.5}
+    ]
+  },
+  "512010.SH": {
+    "name": "医药ETF",
+    "sector": "医药生物",
+    "stocks": [
+      {"code": "600276", "name": "恒瑞医药", "weight": 10.2},
+      {"code": "300760", "name": "迈瑞医疗", "weight": 8.5},
+      {"code": "000538", "name": "云南白药", "weight": 5.8}
+    ]
+  },
+  "159883.SZ": {
+    "name": "医疗器械ETF",
+    "sector": "医疗器械",
+    "stocks": [
+      {"code": "300760", "name": "迈瑞医疗", "weight": 16.5},
+      {"code": "688271", "name": "联影医疗", "weight": 8.2},
+      {"code": "300003", "name": "乐普医疗", "weight": 5.6}
+    ]
+  },
+  "159996.SZ": {
+    "name": "家电ETF",
+    "sector": "家用电器",
+    "stocks": [
+      {"code": "000333", "name": "美的集团", "weight": 15.8},
+      {"code": "000651", "name": "格力电器", "weight": 12.5},
+      {"code": "002032", "name": "苏泊尔", "weight": 6.2}
+    ]
+  },
+  "515650.SH": {
+    "name": "消费50ETF",
+    "sector": "商贸零售",
+    "stocks": [
+      {"code": "600519", "name": "贵州茅台", "weight": 12.5},
+      {"code": "000858", "name": "五粮液", "weight": 9.8},
+      {"code": "000333", "name": "美的集团", "weight": 8.2}
+    ]
+  },
+  "512480.SH": {
+    "name": "半导体ETF",
+    "sector": "半导体",
+    "stocks": [
+      {"code": "688981", "name": "中芯国际", "weight": 10.5},
+      {"code": "002371", "name": "北方华创", "weight": 8.2},
+      {"code": "603501", "name": "韦尔股份", "weight": 6.5}
+    ]
+  },
+  "159995.SZ": {
+    "name": "芯片ETF",
+    "sector": "芯片",
+    "stocks": [
+      {"code": "688981", "name": "中芯国际", "weight": 9.8},
+      {"code": "002371", "name": "北方华创", "weight": 7.5},
+      {"code": "603501", "name": "韦尔股份", "weight": 6.2}
+    ]
+  },
+  "159997.SZ": {
+    "name": "电子ETF",
+    "sector": "电子",
+    "stocks": [
+      {"code": "002475", "name": "立讯精密", "weight": 9.5},
+      {"code": "000725", "name": "京东方A", "weight": 7.8},
+      {"code": "603501", "name": "韦尔股份", "weight": 5.6}
+    ]
+  },
+  "512720.SH": {
+    "name": "计算机ETF",
+    "sector": "计算机",
+    "stocks": [
+      {"code": "002230", "name": "科大讯飞", "weight": 9.5},
+      {"code": "600570", "name": "恒生电子", "weight": 7.2},
+      {"code": "002415", "name": "海康威视", "weight": 6.8}
+    ]
+  },
+  "515880.SH": {
+    "name": "通信ETF",
+    "sector": "通信",
+    "stocks": [
+      {"code": "600050", "name": "中国联通", "weight": 12.5},
+      {"code": "601728", "name": "中国电信", "weight": 10.2},
+      {"code": "600941", "name": "中国移动", "weight": 9.5}
+    ]
+  },
+  "512980.SH": {
+    "name": "传媒ETF",
+    "sector": "传媒",
+    "stocks": [
+      {"code": "002624", "name": "三七互娱", "weight": 6.5},
+      {"code": "300418", "name": "昆仑万维", "weight": 5.8},
+      {"code": "002602", "name": "世纪华通", "weight": 4.5}
+    ]
+  },
+  "159869.SZ": {
+    "name": "游戏ETF",
+    "sector": "游戏",
+    "stocks": [
+      {"code": "002624", "name": "三七互娱", "weight": 10.2},
+      {"code": "002602", "name": "世纪华通", "weight": 8.5},
+      {"code": "300418", "name": "昆仑万维", "weight": 7.2}
+    ]
+  },
+  "515030.SH": {
+    "name": "新能源车ETF",
+    "sector": "新能源汽车",
+    "stocks": [
+      {"code": "300750", "name": "宁德时代", "weight": 12.5},
+      {"code": "002594", "name": "比亚迪", "weight": 11.2},
+      {"code": "601012", "name": "隆基绿能", "weight": 6.5}
+    ]
+  },
+  "515790.SH": {
+    "name": "光伏ETF",
+    "sector": "光伏",
+    "stocks": [
+      {"code": "601012", "name": "隆基绿能", "weight": 13.5},
+      {"code": "600438", "name": "通威股份", "weight": 8.2},
+      {"code": "002459", "name": "晶澳科技", "weight": 6.5}
+    ]
+  },
+  "512660.SH": {
+    "name": "军工ETF",
+    "sector": "军工",
+    "stocks": [
+      {"code": "600760", "name": "中航沈飞", "weight": 6.8},
+      {"code": "600893", "name": "航发动力", "weight": 6.2},
+      {"code": "002049", "name": "紫光国微", "weight": 5.5}
+    ]
+  },
+  "159886.SZ": {
+    "name": "机械ETF",
+    "sector": "机械设备",
+    "stocks": [
+      {"code": "300124", "name": "汇川技术", "weight": 9.5},
+      {"code": "601100", "name": "恒立液压", "weight": 7.2},
+      {"code": "600031", "name": "三一重工", "weight": 6.8}
+    ]
+  },
+  "159865.SZ": {
+    "name": "电池ETF",
+    "sector": "电力设备",
+    "stocks": [
+      {"code": "300750", "name": "宁德时代", "weight": 15.5},
+      {"code": "002594", "name": "比亚迪", "weight": 10.2},
+      {"code": "300014", "name": "亿纬锂能", "weight": 6.5}
+    ]
+  },
+  "512400.SH": {
+    "name": "有色ETF",
+    "sector": "有色金属",
+    "stocks": [
+      {"code": "601899", "name": "紫金矿业", "weight": 12.5},
+      {"code": "603799", "name": "华友钴业", "weight": 7.8},
+      {"code": "600111", "name": "北方稀土", "weight": 6.5}
+    ]
+  },
+  "515210.SH": {
+    "name": "钢铁ETF",
+    "sector": "钢铁",
+    "stocks": [
+      {"code": "600019", "name": "宝钢股份", "weight": 14.5},
+      {"code": "000932", "name": "华菱钢铁", "weight": 6.8},
+      {"code": "600010", "name": "包钢股份", "weight": 5.2}
+    ]
+  },
+  "515220.SH": {
+    "name": "煤炭ETF",
+    "sector": "煤炭",
+    "stocks": [
+      {"code": "601088", "name": "中国神华", "weight": 15.2},
+      {"code": "600188", "name": "兖矿能源", "weight": 8.5},
+      {"code": "601225", "name": "陕西煤业", "weight": 7.8}
+    ]
+  },
+  "516020.SH": {
+    "name": "化工ETF",
+    "sector": "化工",
+    "stocks": [
+      {"code": "600309", "name": "万华化学", "weight": 12.5},
+      {"code": "002601", "name": "龙佰集团", "weight": 5.8},
+      {"code": "600426", "name": "华鲁恒升", "weight": 5.2}
+    ]
+  },
+  "159930.SZ": {
+    "name": "能源ETF",
+    "sector": "石油石化",
+    "stocks": [
+      {"code": "601857", "name": "中国石油", "weight": 12.5},
+      {"code": "600028", "name": "中国石化", "weight": 10.2},
+      {"code": "600938", "name": "中国海油", "weight": 9.5}
+    ]
+  },
+  "159719.SZ": {
+    "name": "基建ETF",
+    "sector": "建筑装饰",
+    "stocks": [
+      {"code": "601668", "name": "中国建筑", "weight": 12.8},
+      {"code": "601390", "name": "中国中铁", "weight": 8.5},
+      {"code": "601800", "name": "中国交建", "weight": 6.2}
+    ]
+  },
+  "159766.SZ": {
+    "name": "交通ETF",
+    "sector": "交通运输",
+    "stocks": [
+      {"code": "601111", "name": "中国国航", "weight": 8.5},
+      {"code": "600029", "name": "南方航空", "weight": 7.2},
+      {"code": "601006", "name": "大秦铁路", "weight": 6.5}
+    ]
+  },
+  "159791.SZ": {
+    "name": "电力ETF",
+    "sector": "公用事业",
+    "stocks": [
+      {"code": "600900", "name": "长江电力", "weight": 15.8},
+      {"code": "003816", "name": "中国广核", "weight": 8.5},
+      {"code": "600011", "name": "华能国际", "weight": 6.2}
+    ]
+  },
+  "159825.SZ": {
+    "name": "农业ETF",
+    "sector": "农林牧渔",
+    "stocks": [
+      {"code": "002714", "name": "牧原股份", "weight": 12.5},
+      {"code": "300498", "name": "温氏股份", "weight": 10.2},
+      {"code": "000876", "name": "新希望", "weight": 6.5}
+    ]
+  }
+}

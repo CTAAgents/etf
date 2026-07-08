@@ -50,9 +50,19 @@ for p in [SKILL_DIR]:
 try:
     from scripts.scan_all import run_scan
     from scripts.config import SECTOR_ETF_MAPPING, SECTOR_NAMES
+    from scripts.mx_moni_client import (
+        is_configured as _mx_ready, cancel_all, buy_market, sell_all_of,
+        post_experience,
+    )
+    from scripts.stock_mapper import StockMapper
 except ImportError:
     from scan_all import run_scan
     from config import SECTOR_ETF_MAPPING, SECTOR_NAMES
+    from mx_moni_client import (
+        is_configured as _mx_ready, cancel_all, buy_market, sell_all_of,
+        post_experience,
+    )
+    from stock_mapper import StockMapper
 
 # 导出符号
 __all__ = [
@@ -325,126 +335,288 @@ def save_holdings(positions: Dict[str, float], path: str = None):
         }, f, ensure_ascii=False, indent=2)
 
 
+LATEST_PLAN_PATH = os.path.join(SKILL_DIR, '..', 'Reports', 'latest_plan.json')
+
+
+def save_latest_plan(plan_data: dict, report_dir: str = None):
+    """保存调仓计划到 latest_plan.json（供周四 --execute 读取）。"""
+    os.makedirs(os.path.dirname(LATEST_PLAN_PATH), exist_ok=True)
+    with open(LATEST_PLAN_PATH, 'w', encoding='utf-8') as f:
+        json.dump(plan_data, f, ensure_ascii=False, indent=2, default=str)
+
+    # 同时保存归档副本
+    if report_dir:
+        os.makedirs(report_dir, exist_ok=True)
+        archive = os.path.join(report_dir,
+                               f'rebalance_{date.today().strftime("%Y%m%d")}.json')
+        with open(archive, 'w', encoding='utf-8') as f:
+            json.dump(plan_data, f, ensure_ascii=False, indent=2, default=str)
+
+
+def load_latest_plan() -> dict:
+    """加载最近一次保存的调仓计划（用于 --execute）。"""
+    if os.path.exists(LATEST_PLAN_PATH):
+        with open(LATEST_PLAN_PATH, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    raise FileNotFoundError(
+        f'调仓计划不存在: {LATEST_PLAN_PATH}。请先运行 --calc-only 计算信号。')
+
+
 # ══════════════════════════════════════════════════════════════
 # CLI 入口
 # ══════════════════════════════════════════════════════════════
 
+def _print_rebalance_plan(plan: dict):
+    """打印调仓方案的可读输出（CLI共有逻辑）。"""
+    is_force_cash = plan.get('force_cash', False)
+    if is_force_cash:
+        max_s = plan['summary'].get('max_bull_score', 0)
+        print(f'\n🔴 强制空仓：全市场最高分={max_s:.0f} < {FORCE_CASH_THRESHOLD}')
+        return
+
+    pool = plan.get('target_pool', [])
+    if pool:
+        print(f'\n🎯 候选池 (TOP{TOP_N}, 总分>{SCORE_ENTRY_THRESHOLD}):')
+        for p in pool:
+            print(f'  #{p["rank"]} {p["sector"]:<8} {p["score"]:>+5.0f}  {p["etf_code"]}')
+
+    print(f'\n📌 操作:')
+    for a in plan.get('actions', []):
+        act = a['action']
+        tag = '🟢' if act == 'BUY' else ('🔴' if act == 'SELL' else '🔄')
+        if act == 'HOLD':
+            print(f'  {tag} {a["sector"]:<8} HOLD  {a["new_pct"]:.1%}')
+        elif act == 'BUY':
+            print(f'  {tag} {a["sector"]:<8} BUY   {a["new_pct"]:.1%}')
+        elif act == 'SELL':
+            print(f'  {tag} {a["sector"]:<8} SELL  原{a["old_pct"]:.1%}')
+
+    s = plan['summary']
+    print(f'\n📈 扫描{s["total_sectors_scanned"]} → 候选{s["target_pool_size"]} | '
+          f'HOLD{s["keep_sectors"]} SELL{s["sell_sectors"]} BUY{s["new_buys"]}')
+
+
+def _run_calc_only(holdings_path: str, output_dir: str, dry_run: bool):
+    """周三收盘后模式：计算信号+保存计划，不执行交易。"""
+    print(f'{"="*60}')
+    print(f'ETF周频调仓 — 周三收盘信号计算   {date.today()}')
+    print(f'数据源: 通达信TQ-Local | 策略: 通道突破 v2.1')
+    print(f'{"="*60}')
+
+    current = load_holdings(holdings_path)
+    print(f'\n[1] 持仓: {len(current)}个行业' + ('' if not current else ''))
+    for s, p in sorted(current.items(), key=lambda x: -x[1]):
+        print(f'    {s}: {p:.1%}')
+
+    print(f'\n[2] 全行业扫描...')
+    scan = run_scan()
+
+    print(f'\n[3] 调仓计算...')
+    plan = compute_rebalance(scan, current)
+
+    # ETF→股票映射
+    print(f'\n[4] ETF→股票映射...')
+    mapper = StockMapper()
+    mapped = mapper.map_rebalance_to_stocks(plan)
+    stock_acts = mapped.get('stock_actions', [])
+    buys = len([a for a in stock_acts if a['action'] == 'BUY'])
+    sells = len([a for a in stock_acts if a['action'] == 'SELL'])
+    print(f'    待执行（周四开盘）: BUY {buys}只 / SELL {sells}只')
+
+    _print_rebalance_plan(plan)
+
+    # 保存
+    report_dir = os.path.join(SKILL_DIR, '..', 'Reports',
+                              date.today().strftime('%Y-%m-%d'))
+    pipeline_result = {
+        'date': str(date.today()),
+        'strategy': 'etf-trend-signal v2.1 通道突破',
+        'data_source': '通达信TQ-Local',
+        'top_signals': [
+            {'sector': r['sector'], 'total': r['total'], 'grade': r['grade']}
+            for r in scan.get('all_ranked', [])[:5]
+        ],
+        'rebalance': plan,
+        'stock_actions': stock_acts,
+        'summary_html': mapped.get('summary_html', ''),
+        'execution_status': 'pending',
+    }
+    save_latest_plan(pipeline_result, report_dir)
+    print(f'\n📋 调仓计划已保存: {os.path.relpath(LATEST_PLAN_PATH, SKILL_DIR)}')
+
+    if not dry_run:
+        save_holdings(plan['final_positions'], holdings_path)
+        print(f'✅ 持仓已更新')
+
+
+def _run_execute(dry_run: bool):
+    """周四开盘模式：读取计划+执行交易。"""
+    print(f'{"="*60}')
+    print(f'ETF周频调仓 — 周四开盘执行   {date.today()}')
+    print(f'执行模式: {"DRY-RUN" if dry_run else "LIVE"}')
+    print(f'{"="*60}')
+
+    if not dry_run and not _mx_ready():
+        print('❌ MX_APIKEY 未配置，无法执行交易')
+        sys.exit(1)
+
+    plan_data = load_latest_plan()
+    stock_actions = plan_data.get('stock_actions', [])
+    summary_html = plan_data.get('summary_html', '')
+
+    print(f'\n计划日期: {plan_data.get("date", "?")}')
+    print(f'待执行: {len(stock_actions)} 笔交易')
+
+    if not stock_actions:
+        print('⚠ 无交易指令，跳过执行')
+        return
+
+    if dry_run:
+        print('\n[DRY-RUN] 预览:')
+        for a in stock_actions:
+            print(f'  {a["action"]:>4} {a["stock_code"]} {a["stock_name"]}')
+        return
+
+    # ① 撤旧单
+    print('\n[1] 撤销未成交委托...')
+    r = cancel_all()
+    print(f'    撤单: {r.get("message", r.get("code", ""))}')
+
+    # ② 执行交易
+    print(f'\n[2] 执行交易...')
+    results = []
+    for a in stock_actions:
+        code = a['stock_code']
+        name = a['stock_name']
+        act = a['action']
+        if act == 'BUY':
+            r = buy_market(code, 100)
+        else:
+            r = sell_all_of(code)
+        ok = r.get('code') in ('200', '0', 'skip')
+        results.append({'code': code, 'name': name, 'action': act,
+                        'ok': ok, 'msg': r.get('message', r.get('code', ''))})
+        print(f'  {"✅" if ok else "❌"} {act} {code} {name}: '
+              f'{r.get("message", r.get("code", ""))}')
+
+    # ③ 发帖
+    if summary_html and any(r['ok'] for r in results):
+        print(f'\n[3] 发布经验交流帖...')
+        pr = post_experience(summary_html)
+        print(f'    发帖: {pr.get("message", pr.get("code", ""))}')
+
+    # 保存执行结果
+    plan_data['execution_status'] = 'executed'
+    plan_data['trade_results'] = results
+    report_dir = os.path.join(SKILL_DIR, '..', 'Reports',
+                              plan_data.get('date', str(date.today())))
+    save_latest_plan(plan_data, report_dir)
+    print(f'\n✅ 执行完成')
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(
-        description='ETF周频调仓信号生成器 v1.0 — 每周三收盘计算，周四开盘执行')
-    parser.add_argument('--holdings', '-H', help='持仓状态JSON路径（默认Reports/holdings_state.json）')
-    parser.add_argument('--output', '-o', help='输出目录（默认Reports）')
-    parser.add_argument('--dry-run', action='store_true', help='仅预览，不写入持仓文件')
+        description='ETF周频调仓信号生成器 v2.0 — 周三收盘计算，周四开盘执行',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+模式:
+  --calc-only    周三收盘后：计算信号+生成调仓计划（不执行交易）
+  --execute      周四开盘：读取最新计划并执行交易
+  （无参数）      全流程：计算+立即执行（手动调试用）
+
+示例:
+  %(prog)s --calc-only            # 周三收盘后运行
+  %(prog)s --execute              # 周四开盘运行
+  %(prog)s --calc-only --dry-run  # 周三预览
+  %(prog)s --execute --dry-run    # 周四预览
+        """)
+    parser.add_argument('--calc-only', action='store_true',
+                        help='仅计算信号（周三收盘后使用）')
+    parser.add_argument('--execute', action='store_true',
+                        help='仅执行交易（周四开盘使用）')
+    parser.add_argument('--holdings', '-H', help='持仓JSON路径')
+    parser.add_argument('--output', '-o', help='输出目录')
+    parser.add_argument('--dry-run', action='store_true', help='仅预览')
+
     args = parser.parse_args()
+
+    if args.calc_only and args.execute:
+        print('❌ --calc-only 和 --execute 不能同时使用')
+        sys.exit(1)
 
     holdings_path = args.holdings or DEFAULT_HOLDINGS_PATH
     output_dir = args.output or os.path.join(SKILL_DIR, '..', 'Reports',
                                              date.today().strftime('%Y-%m-%d'))
 
-    print(f'{"="*60}')
-    print(f'ETF周频调仓信号生成 — {date.today()}')
-    print(f'持仓文件: {holdings_path}')
-    print(f'输出目录: {output_dir}')
-    print(f'{"="*60}')
+    # ── 模式分发 ──
+    if args.calc_only:
+        _run_calc_only(holdings_path, output_dir, args.dry_run)
+    elif args.execute:
+        _run_execute(args.dry_run)
+    else:
+        # ── 完整模式：计算 + 执行（周四盘前使用）──
+        print(f'{"="*60}')
+        print(f'ETF周频调仓 — {date.today()}')
+        print(f'数据源: 通达信TQ-Local | 策略: 通道突破 v2.1')
+        print(f'{"="*60}')
 
-    # Step 1: 加载上周持仓
-    current = load_holdings(holdings_path)
-    if current:
-        print(f'\n[1] 上周持仓 ({len(current)}个行业):')
+        current = load_holdings(holdings_path)
+        print(f'\n[1] 持仓: {len(current)}个行业')
         for s, p in sorted(current.items(), key=lambda x: -x[1]):
             print(f'    {s}: {p:.1%}')
-    else:
-        print('\n[1] 上周持仓: 空仓')
 
-    # Step 2: 执行全行业扫描
-    print(f'\n[2] 全行业扫描...')
-    scan_output_dir = output_dir if args.output else None
-    scan_results = run_scan(output_dir=scan_output_dir, output_prefix='weekly_scan')
+        print(f'\n[2] 全行业扫描...')
+        scan = run_scan()
 
-    total_bull = len(scan_results.get('bull_signals', scan_results.get('all_ranked', [])))
-    print(f'    多头信号: {total_bull}个')
+        print(f'\n[3] 调仓计算...')
+        plan = compute_rebalance(scan, current)
+        _print_rebalance_plan(plan)
 
-    # Step 3: 计算调仓方案
-    print(f'\n[3] 调仓计算...')
-    plan = compute_rebalance(scan_results, current)
+        # ETF→股票映射
+        print(f'\n[4] ETF→股票映射...')
+        mapper = StockMapper()
+        mapped = mapper.map_rebalance_to_stocks(plan)
+        stock_acts = mapped.get('stock_actions', [])
 
-    # Step 4: 输出调仓方案
-    print(f'\n{"="*60}')
-    print(f'📋 调仓方案')
-    print(f'{"="*60}')
+        # 执行交易
+        if stock_acts and not args.dry_run:
+            if not _mx_ready():
+                print('❌ MX_APIKEY 未配置，跳过交易执行')
+            else:
+                print(f'\n[5] 执行 mx-moni 交易 ({len(stock_acts)} 笔)...')
+                cancel_all()
+                results = []
+                for a in stock_acts:
+                    code = a['stock_code']
+                    name = a['stock_name']
+                    act = a['action']
+                    r = buy_market(code, 100) if act == 'BUY' else sell_all_of(code)
+                    ok = r.get('code') in ('200', '0', 'skip')
+                    results.append({'code': code, 'name': name, 'action': act,
+                                    'ok': ok, 'msg': r.get('message', r.get('code', ''))})
+                    print(f'  {"✅" if ok else "❌"} {act} {code} {name}: '
+                          f'{r.get("message", r.get("code", ""))}')
 
-    # 强制空仓检测
-    is_force_cash = plan.get('force_cash', False)
-    if is_force_cash:
-        max_s = plan['summary'].get('max_bull_score', 0)
-        print(f'\n🔴 强制空仓：全市场所有多头信号总分<{FORCE_CASH_THRESHOLD}（最高={max_s:.0f}）')
-        print(f'   理由: {plan.get("force_cash_reason", "")}')
-    # 候选池
-    elif plan['target_pool']:
-        print(f'\n🎯 候选池 (TOP{TOP_N} 且 总分>{SCORE_ENTRY_THRESHOLD}):')
-        print(f'  {"#":>3} {"行业":<8} {"总分":>6} {"代码":>10} {"价格":>8} {"涨跌":>6}')
-        print(f'  {"---":>3} {"------":<8} {"------":>6} {"----------":>10} {"--------":>8} {"------":>6}')
-        for p in plan['target_pool']:
-            chg = p.get('change_pct', 0)
-            chg_str = f'{chg:+.1f}%' if chg else 'N/A'
-            print(f'  #{p["rank"]:>2} {p["sector"]:<8} {p["score"]:>+5.0f} {p["etf_code"]:>10} {p.get("price",0):>8.2f} {chg_str:>6}')
-    else:
-        print(f'\n⚠️ 候选池为空：无行业同时满足 TOP{TOP_N} + 总分>{SCORE_ENTRY_THRESHOLD}')
+                if mapped.get('summary_html') and any(r['ok'] for r in results):
+                    post_experience(mapped['summary_html'])
+                    print(f'\n  已发布经验交流帖')
+        elif args.dry_run and stock_acts:
+            print(f'\n[5] [DRY-RUN] 待执行: {len(stock_acts)} 笔')
+        else:
+            print(f'\n[5] 无交易指令')
 
-    # 操作明细
-    print(f'\n📌 操作明细:')
-    if not plan['actions']:
-        print(f'  无操作')
-    for a in plan['actions']:
-        act = a['action']
-        sec = a['sector']
-        if act == 'HOLD':
-            print(f'  🔄 {sec:<8} HOLD  {a["new_pct"]:.1%} (保持不变)')
-            print(f'      理由: {a["reason"]}')
-        elif act == 'BUY':
-            print(f'  🟢 {sec:<8} BUY   {a["new_pct"]:.1%}')
-            print(f'      理由: {a["reason"]}')
-        elif act == 'SELL':
-            print(f'  🔴 {sec:<8} SELL  (原{a["old_pct"]:.1%})')
-            print(f'      理由: {a["reason"]}')
+        # 保存
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir,
+                                   f'rebalance_{date.today().strftime("%Y%m%d")}.json')
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(plan, f, ensure_ascii=False, indent=2, default=str)
+        print(f'\n📊 调仓方案已保存: {output_path}')
 
-    # 最终仓位
-    if plan['final_positions']:
-        print(f'\n📊 最终仓位 (总和={sum(plan["final_positions"].values()):.1%}):')
-        print(f'  {"行业":<8} {"仓位":>8}')
-        print(f'  {"------":<8} {"------":>8}')
-        for s, p in sorted(plan['final_positions'].items(), key=lambda x: -x[1]):
-            print(f'  {s:<8} {p:.1%}')
-    elif is_force_cash:
-        print(f'\n✅ 全市场信号极弱，强制空仓，不持有任何行业')
-    else:
-        print(f'\n⚠️ 最终仓位为空')
-
-    # 统计
-    s = plan['summary']
-    if is_force_cash:
-        print(f'\n📈 统计: 扫描{s["total_sectors_scanned"]}行业 | '
-              f'强制空仓(最高分={s.get("max_bull_score",0):.0f} < {FORCE_CASH_THRESHOLD}) | '
-              f'SELL{s["sell_sectors"]}个旧持仓')
-    else:
-        print(f'\n📈 统计: 扫描{s["total_sectors_scanned"]}行业 | '
-              f'候选池{s["target_pool_size"]}个 | '
-              f'HOLD{s["keep_sectors"]}个 | '
-              f'SELL{s["sell_sectors"]}个 | '
-              f'BUY{s["new_buys"]}个')
-
-    # Step 5: 保存
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f'rebalance_{date.today().strftime("%Y%m%d")}.json')
-    with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(plan, f, ensure_ascii=False, indent=2, default=str)
-    print(f'\n📊 调仓方案已保存: {output_path}')
-
-    # 非dry-run时更新持仓状态
-    if not args.dry_run:
-        save_holdings(plan['final_positions'], holdings_path)
-        print(f'✅ 持仓状态已更新: {holdings_path}')
+        if not args.dry_run:
+            save_holdings(plan['final_positions'], holdings_path)
+            print(f'✅ 持仓已更新: {holdings_path}')
 
 
 if __name__ == '__main__':

@@ -1,28 +1,25 @@
-# 行业ETF趋势信号发现系统 v2.1.0
+# 行业ETF趋势信号发现系统 v2.2.0
 
-**etf-trend-signal** — 基于 **通道突破策略（Channel Breakout Strategy）** 的ETF信号评分系统。
+**etf-trend-signal** — 基于趋势跟踪的行业轮动ETF周频调仓策略技能。
 数据源：**纯通达信TQ-Local**（HTTP JSON-RPC，无第三方库依赖）。
 
 ## 📌 定位
 
-v2.1 在通道突破策略基础上，新增**纯多头模式** + **参数优化**：
-- **纯多头模式**：ETF只做多，scan_all输出自动过滤空头信号
-- **参数优化**：基于6行业×250天历史数据的网格搜索，调整DC55/BB/Volume阈值
-- 数据源不变：**纯通达信TQ-Local**（HTTP JSON-RPC，无第三方库依赖）
+v2.2 在 v2.1 基础上新增**完整调仓执行管道** + **妙想模拟交易集成**：
+- **完整管道**：信号扫描 → 调仓决策 → ETF→股票映射 → 模拟交易执行，一条命令完成
+- **妙想模拟交易**：通过 mx-moni API 实现持仓查询、市价买卖、一键撤单、经验交流发帖
+- **零胶水代码**：所有能力均为 skill 内置模块，无需 workspace 桥接脚本
+- 数据源不变：**纯通达信TQ-Local**
 
-## 🎯 核心变更（vs v1.1.3）
+## 🎯 核心变更（vs v2.1.x）
 
-| 维度 | v1.1.3 (旧) | v2.1.0 (新) |
+| 维度 | v2.1.x (旧) | v2.2.0 (新) |
 |:----|:-----------|:-----------|
-| 评分架构 | L1-L4四层(35/30/20/15) + 否决(-20) | 唐奇安通道(75%) + 布林带(25%) + 成交量 |
-| 输出模式 | 多头+空头 | **纯多头**（ETF只做多，空头自动过滤） |
-| 总分范围 | [0, 100] | [-76, +76] |
-| STRONG阈值 | ≥75分 | ≥50分 |
-| 信号类型 | 无分级 | channel_breakout / trend_confirmation / bb_squeeze_prebreakout / minor_signal |
-| ETF专属信号 | IOPV/北向/融资/份额 | 不再计入评分（可辅助参考） |
-| 否决项 | 13项(-20分) | 无否决（直接计入各层分值） |
-| 参数 | 固定默认值 | **网格搜索优化**（DC55/BB/Volume共6参数） |
-| 数据源 | 通达信TQ-Local | 通达信TQ-Local（不变） |
+| 调仓执行 | 仅输出调仓方案JSON | **完整管道**：扫描→决策→股票映射→API交易 |
+| 模拟交易 | 无 | **mx-moni 集成**：持仓查询/市价买卖/撤单/发帖 |
+| CLI接口 | `weekly_rebalance.py (无参数)` | 新增 `--calc-only` / `--execute` / 默认全流程 |
+| ETF→股票 | 无 | **stock_mapper.py**：31行业ETF→前3大持仓股票映射 |
+| 架构 | 部分能力在workspace胶水脚本 | **零胶水代码**：全部内置为skill模块 |
 
 ## 🔧 评分架构
 
@@ -134,13 +131,17 @@ etf-trend-signal/
 │   │   ├── collect_data.py       # 通达信TQ-Local数据采集
 │   │   ├── indicators.py         # 技术指标计算（60+字段）
 │   │   ├── scoring_system.py     # 🔴 核心：通道突破策略评分
-│   │   ├── scan_all.py           # CLI入口：全行业扫描评分排序
+│   │   ├── scan_all.py           # CLI：全行业扫描评分排序
 │   │   └── report.py             # Markdown/HTML报告生成
 │   │
-│   ├── 🎯 Part 2: 调仓决策（可独立/整合调用）
-│   │   └── weekly_rebalance.py   # 周频调仓信号生成器
-│   │       ├── 独立运行: python weekly_rebalance.py
-│   │       └── 编程整合: compute_rebalance(scan_results, holdings)
+│   ├── 🎯 Part 2: 调仓决策 + 执行（可独立/整合调用）
+│   │   ├── weekly_rebalance.py   # 周频调仓总入口 v2.2
+│   │   │   ├── 默认模式: 扫描→调仓→股票映射→交易执行
+│   │   │   ├── --calc-only: 仅计算信号（保存计划）
+│   │   │   ├── --execute:   仅执行交易（读取计划）
+│   │   │   └── 编程API: compute_rebalance(scan, holdings)
+│   │   ├── stock_mapper.py       # ETF→A股股票映射（31行业）
+│   │   └── mx_moni_client.py     # 妙想模拟交易 REST API 客户端
 │   │
 │   ├── 🛠️ 辅助模块
 │   │   ├── config.py             # 通道突破策略配置参数
@@ -157,7 +158,7 @@ etf-trend-signal/
 │       └── backtest_rebalance.py # 周频调仓3年回测
 ```
 
-### 两部分调用方式
+### 三部分调用方式
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -177,13 +178,35 @@ etf-trend-signal/
 │                                                 │
 │  weekly_rebalance.py                             │
 │      ↓                                           │
-│  独立运行: 自动调用 Part 1 → 调仓计算             │
-│  编程整合: compute_rebalance(scan_results,       │
-│                               current_holdings)  │
+│  compute_rebalance(scan_results, holdings)      │
 │      ↓                                           │
 │  候选池 → 持仓判定 → 新开仓 → 仓位分配            │
 │  ↓ 输出: 调仓方案JSON + 更新持仓文件               │
+└──────────────────────┬──────────────────────────┘
+                       │ rebalance plan (dict)
+                       ▼
+┌─────────────────────────────────────────────────┐
+│        Part 3: 执行（v2.2 新增）                   │
+│                                                 │
+│  stock_mapper.py                                 │
+│      ↓ ETF→A股股票映射（前3大持仓）                │
+│  mx_moni_client.py                               │
+│      ↓ 撤旧委托 → 市价买入/卖出 → 发帖总结          │
+│  ↓ 输出: 交易结果 + mx-moni经验帖                  │
 └─────────────────────────────────────────────────┘
+```
+
+### 三种运行模式
+
+```bash
+# 模式一：完整管道（周四盘前使用）—— 扫描+调仓+执行
+python scripts/weekly_rebalance.py
+
+# 模式二：仅计算信号（手动预览）
+python scripts/weekly_rebalance.py --calc-only
+
+# 模式三：仅执行交易（读取上次保存的计划）
+python scripts/weekly_rebalance.py --execute
 ```
 
 ### 快速入门
@@ -325,6 +348,16 @@ scripts/
 | Z分数范围 | 方向感知Z-score -3~+3 |
 
 ## 📝 版本历史
+
+### v2.2.0 (2026-07-08)
+**核心改动：完整调仓执行管道 + 妙想模拟交易集成 + 零胶水代码**
+
+1. **完整管道**：`weekly_rebalance.py` 默认模式一条命令完成扫描→调仓→股票映射→交易执行
+2. **三种CLI模式**：`--calc-only`（仅计算）、`--execute`（仅执行）、默认（全流程）
+3. **新增 `mx_moni_client.py`**：妙想模拟交易 REST API 客户端（持仓查询/市价买卖/撤单/发帖）
+4. **新增 `stock_mapper.py`**：ETF→A股股票映射模块，31行业ETF→前3大持仓股票
+5. **新增 `etf_stock_mapping.json`**：映射配置文件，存放于 scripts/ 目录
+6. **零胶水代码**：删除 workspace 中 3 个桥接脚本（1855行），全部能力上移到 skill 模块
 
 ### v2.1.0 (2026-07-08)
 **核心改动：纯多头模式 + 参数网格搜索优化**
