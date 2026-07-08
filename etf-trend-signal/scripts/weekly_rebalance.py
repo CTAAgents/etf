@@ -42,9 +42,10 @@ except ImportError:
 # ══════════════════════════════════════════════════════════════
 # 配置
 # ══════════════════════════════════════════════════════════════
-TOP_N = 5                  # 选前N个行业
-SCORE_ENTRY_THRESHOLD = 50  # 信号总分>50才进入候选池
-SCORE_EXIT_THRESHOLD = 40   # 掉出TOP5+总分<40才清仓
+TOP_N = 3                  # 优化: 3 (网格搜索900组最优)
+SCORE_ENTRY_THRESHOLD = 55  # 优化: 55 (网格搜索900组最优)
+SCORE_EXIT_THRESHOLD = 30   # 优化: 30 (平原25~40,取中点)
+FORCE_CASH_THRESHOLD = 35   # 优化: 35 (平原30~40,取中点)
 FORCE_CASH_THRESHOLD = 40   # 所有多头总分都<40 → 强制空仓
 
 # 行业→ETF代码快速查找
