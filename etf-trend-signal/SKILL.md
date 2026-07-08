@@ -126,79 +126,140 @@ B3 %b位置：极端±6, 上/下轨±4, 中上/中下±2
 
 ```
 etf-trend-signal/
-├── SKILL.md                  # 本文件——完整文档
+├── SKILL.md                      # 本文件——完整文档
+├── sync_etf_skill.sh             # 一键同步→GitHub
 ├── scripts/
-│   ├── __init__.py           # 模块导出（更新为v2.0接口）
-│   ├── config.py             # 通道突破策略配置参数
-│   ├── collect_data.py       # 通达信TQ-Local数据采集（不变）
-│   ├── indicators.py         # 技术指标计算（不变，已含DC20/DC55/BB）
-│   ├── scoring_system.py     # 🔴 核心：通道突破策略评分（完全重写）
-│   ├── scan_all.py           # 全行业扫描CLI（适配新评分）
-│   ├── report.py             # Markdown/HTML报告生成（适配新评分）
-│   ├── signal_screener.py    # 信号筛选（适配通道突破策略）
-│   ├── trade_plan.py         # T+1交易方案（适配新评分）
-│   ├── sector_rotation.py    # 行业轮动分析（保留不变）
-│   ├── early_signal.py       # ⚠️ 已弃用（保留仅供引用，不再注入评分）
-│   └── lint_no_inline_scoring.py  # 合规检测（保留）
-│   └── backtest/
-│       ├── evaluate.py       # 回测评估（待适配）
-│       └── optimize_weights.py # 权重优化（待适配）
+│   │
+│   ├── 📡 Part 1: 信号计算排序（可独立调用）
+│   │   ├── collect_data.py       # 通达信TQ-Local数据采集
+│   │   ├── indicators.py         # 技术指标计算（60+字段）
+│   │   ├── scoring_system.py     # 🔴 核心：通道突破策略评分
+│   │   ├── scan_all.py           # CLI入口：全行业扫描评分排序
+│   │   └── report.py             # Markdown/HTML报告生成
+│   │
+│   ├── 🎯 Part 2: 调仓决策（可独立/整合调用）
+│   │   └── weekly_rebalance.py   # 周频调仓信号生成器
+│   │       ├── 独立运行: python weekly_rebalance.py
+│   │       └── 编程整合: compute_rebalance(scan_results, holdings)
+│   │
+│   ├── 🛠️ 辅助模块
+│   │   ├── config.py             # 通道突破策略配置参数
+│   │   ├── sector_rotation.py    # 行业轮动分析
+│   │   ├── signal_screener.py    # 信号筛选
+│   │   ├── trade_plan.py         # T+1交易方案
+│   │   ├── early_signal.py       # ⚠️ 已弃用
+│   │   └── lint_no_inline_scoring.py  # 合规检测
+│   │
+│   └── 📈 回测
+│       ├── evaluate.py           # 回测评估
+│       ├── run_optimization.py   # 参数优化网格搜索
+│       ├── optimize_rebalance_params.py  # 调仓参数优化（900组）
+│       └── backtest_rebalance.py # 周频调仓3年回测
 ```
 
-### 依赖关系
+### 两部分调用方式
 
 ```
-scan_all.py (CLI入口)
-    ├── collect_data.py → indicators.py → scoring_system.py (新的通道突破评分)
-    ├── sector_rotation.py (行业相对强度，保持不变)
-    
-signal_screener.py
-    └── (依赖 scoring_system 的评分结果)
-
-trade_plan.py
-    └── (依赖 scoring_system 的 composite_score)
+┌─────────────────────────────────────────────────┐
+│            Part 1: 信号计算排序                    │
+│                                                 │
+│  scan_all.py (CLI)                               │
+│      ↓                                           │
+│  collect_data.py → indicators.py → scoring      │
+│      ↓                                           │
+│  31行业ETF评分 + 排序 + Z-score                   │
+│  ↓ 输出: JSON + HTML                             │
+└──────────────────────┬──────────────────────────┘
+                       │ scan_results (dict)
+                       ▼
+┌─────────────────────────────────────────────────┐
+│          Part 2: 调仓决策                         │
+│                                                 │
+│  weekly_rebalance.py                             │
+│      ↓                                           │
+│  独立运行: 自动调用 Part 1 → 调仓计算             │
+│  编程整合: compute_rebalance(scan_results,       │
+│                               current_holdings)  │
+│      ↓                                           │
+│  候选池 → 持仓判定 → 新开仓 → 仓位分配            │
+│  ↓ 输出: 调仓方案JSON + 更新持仓文件               │
+└─────────────────────────────────────────────────┘
 ```
+
+### 快速入门
+
+```python
+# 方式一：一键全流程（Part 1 + Part 2）
+from weekly_rebalance import compute_rebalance, load_holdings, save_holdings
+from scan_all import run_scan
+
+scan = run_scan()                              # Part 1: 信号计算
+current = load_holdings()                       # 加载上周持仓
+plan = compute_rebalance(scan, current)         # Part 2: 调仓决策
+save_holdings(plan['final_positions'])           # 保存新持仓
+print(plan['summary'])
+
+# 方式二：仅看信号排序（Part 1 独立调用）
+python scripts/scan_all.py --output /path/to/output
+
+# 方式三：仅看调仓方案（Part 2 独立调用，自动触发 Part 1）
+python scripts/weekly_rebalance.py --dry-run
+```
+
+### 调仓参数（优化后）
+
+| 参数 | 值 | 含义 |
+|:----|:--:|:-----|
+| TOP_N | **3** | 候选池最多3个行业 |
+| SCORE_ENTRY_THRESHOLD | **55** | 总分>55才进入候选池 |
+| SCORE_EXIT_THRESHOLD | **30** | 掉出候选池+总分<30才清仓 |
+| FORCE_CASH_THRESHOLD | **35** | 全市场最高分<35→强制空仓 |
 
 ## 🚀 使用方式
 
-### 全行业批量扫描
+### Part 1: 全行业信号扫描（独立）
 
 ```bash
 cd ~/.workbuddy/skills/etf-trend-signal
-python scripts/scan_all.py
+python scripts/scan_all.py --output Reports
 
-# 指定输出目录
-python scripts/scan_all.py --output /path/to/output --prefix my_scan
-
-# 输出文件：
-#   {output_dir}/{prefix}_{YYYYMMDD}.json       — 结构化信号数据
-#   {output_dir}/{prefix}_ranking_{YYYYMMDD}.html — 交互式报表
+# 快速模式：只扫前5个行业
+python scripts/scan_all.py --quick 5
 ```
 
-### 编程调用
+### Part 2: 周频调仓（独立运行，自动触发 Part 1）
+
+```bash
+# 首次运行（无持仓文件）
+python scripts/weekly_rebalance.py
+
+# 预览不更新持仓
+python scripts/weekly_rebalance.py --dry-run
+
+# 指定持仓文件
+python scripts/weekly_rebalance.py --holdings /path/to/holdings.json
+```
+
+### 编程调用：整合 Part 1 + Part 2
 
 ```python
-from scripts.collect_data import EtfDataCollector
-from scripts.indicators import _compute_indicators_numpy
-from scripts.scoring_system import calculate_composite_score
-from scripts.signal_screener import screen_signals
-from scripts.trade_plan import generate_trade_plan
+from weekly_rebalance import compute_rebalance, load_holdings, save_holdings,
+    TOP_N, SCORE_ENTRY_THRESHOLD, SCORE_EXIT_THRESHOLD, FORCE_CASH_THRESHOLD
+from scan_all import run_scan
 
-# 1. 采集数据
-import pandas as pd
-collector = EtfDataCollector()
-klines = collector.get_etf_klines('半导体', '512480.SH')
+# Part 1: 信号计算
+scan = run_scan(output_dir='Reports', output_prefix='weekly')
 
-# 2. 计算指标
-df = pd.DataFrame(klines)
-tech = _compute_indicators_numpy(df)
+# Part 2: 调仓决策
+current = load_holdings()
+plan = compute_rebalance(scan, current)
 
-# 3. 通道突破评分
-sym = {'last_price': klines[-1]['close']}
-sc = calculate_composite_score(tech, sym)
-print(f"{sc['grade']}: {sc['total']}分, 方向={sc['direction']}")
-print(f"信号类型: {sc['signal_type']}")
-print(f"子层: DC20={sc['sub_scores']['dc20']}, DC55={sc['sub_scores']['dc55']}, BB={sc['sub_scores']['bb']}, VOL={sc['sub_scores']['vol']}")
+print(f'候选池: {len(plan["target_pool"])}个行业')
+print(f'调仓动作:')
+for a in plan['actions']:
+    print(f'  {a["action"]} {a["sector"]} ({a["new_pct"]:.1%})')
+print(f'最终仓位: {plan["final_positions"]}')
+save_holdings(plan['final_positions'])
 ```
 
 ## 📊 信号等级说明

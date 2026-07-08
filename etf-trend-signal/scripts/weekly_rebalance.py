@@ -4,19 +4,35 @@ ETF周频调仓信号生成器 v1.0
 ================================
 每周三收盘后计算信号，周四开盘执行。
 
-调仓规则：
+=== 两部分架构 ===
+
+Part 1 — 信号计算排序（可独立调用）
+    scan_all.py → run_scan()
+    输出：31行业ETF的信号评分、排序、Z-score
+
+Part 2 — 调仓决策（可独立调用，也可整合Part 1）
+    独立调用：
+        python weekly_rebalance.py [--holdings <path>] [--dry-run]
+        → 自动调用scan_all做信号计算 → 调仓决策 → 输出方案
+    编程整合：
+        from weekly_rebalance import compute_rebalance
+        scan_results = run_scan()           # Part 1: 信号计算
+        plan = compute_rebalance(scan_results, current_holdings)  # Part 2: 调仓决策
+
+调仓规则（优化参数 v2）：
 1. 全行业扫描 → 按总分降序排列
-2. 选出 TOP5 且总分>50的行业作为候选池
+2. 选出 TOP3 且 总分>55 的行业作为候选池
 3. 持仓处理（逐行业判定）：
    - 持仓行业在候选池内 → 继续持有（仓位不变）
    - 持仓行业不在候选池内：
-       · 排名掉出TOP5 **且** 总分<40 → 清仓
+       · 排名掉出TOP3 **且** 总分<30 → 清仓
        · 否则（只满足一个条件）→ 继续持有
-4. 新开仓：候选池中非持仓行业，均分剩余仓位
-5. 总仓位 = 100%
+4. 全市场最高分<35 → 强制空仓
+5. 新开仓：候选池中非持仓行业，均分剩余仓位
+6. 总仓位 = 100%
 
 用法：
-    python weekly_rebalance.py [--holdings <path>] [--output <dir>]
+    python weekly_rebalance.py [--holdings <path>] [--output <dir>] [--dry-run]
 
 holdings文件格式（JSON）：
     {"半导体": 0.25, "电子": 0.25, ...}   # 各行业持仓比例，和=1.0
@@ -38,6 +54,13 @@ except ImportError:
     from scan_all import run_scan
     from config import SECTOR_ETF_MAPPING, SECTOR_NAMES
 
+# 导出符号
+__all__ = [
+    'compute_rebalance', 'load_holdings', 'save_holdings',
+    'TOP_N', 'SCORE_ENTRY_THRESHOLD', 'SCORE_EXIT_THRESHOLD', 'FORCE_CASH_THRESHOLD',
+    'SECTOR_TO_ETF',
+]
+
 
 # ══════════════════════════════════════════════════════════════
 # 配置
@@ -46,7 +69,6 @@ TOP_N = 3                  # 优化: 3 (网格搜索900组最优)
 SCORE_ENTRY_THRESHOLD = 55  # 优化: 55 (网格搜索900组最优)
 SCORE_EXIT_THRESHOLD = 30   # 优化: 30 (平原25~40,取中点)
 FORCE_CASH_THRESHOLD = 35   # 优化: 35 (平原30~40,取中点)
-FORCE_CASH_THRESHOLD = 40   # 所有多头总分都<40 → 强制空仓
 
 # 行业→ETF代码快速查找
 SECTOR_TO_ETF = {s[0]: s[2] for s in SECTOR_ETF_MAPPING}
