@@ -170,7 +170,7 @@ class BacktestEngine:
                                 "highest": entry_price,
                             }
 
-            # ---- 逐日跟踪止损检查 ----
+            # ---- 逐日跟踪止损检查（v1.2.1: 盘中触及即退出）----
             if self.config.trailing_stop_enabled:
                 to_remove = []
                 for code in list(current_holdings):
@@ -180,6 +180,7 @@ class BacktestEngine:
                     if df is None:
                         continue
                     today_close = self._get_price_at_date(df, date)
+                    today_low = self._get_price_at_date(df, date, "low")
                     if today_close is None:
                         continue
                     state = stop_state.get(code)
@@ -191,18 +192,19 @@ class BacktestEngine:
                     if today_high and today_high > state["highest"]:
                         state["highest"] = today_high
 
-                    # 计算跟踪止损价 = 最高价 - 3 × 入场ATR
                     stop_price = state["highest"] - self.config.trailing_stop_atr_multiplier * state["entry_atr"]
 
-                    if today_close <= stop_price:
+                    # ★ v1.2.1: 盘中触及即退出（用stop_price而非close）
+                    if today_low is not None and today_low <= stop_price:
+                        exit_price = stop_price  # 保守假设在止损位退出
                         to_remove.append(code)
-                        dd_pct = (today_close / state["entry_price"] - 1) * 100
+                        dd_pct = (exit_price / state["entry_price"] - 1) * 100
                         self.stop_events.append({
                             "date": date.strftime("%Y-%m-%d"),
                             "code": code,
                             "entry_price": state["entry_price"],
-                            "stop_price": stop_price,
-                            "exit_price": today_close,
+                            "stop_price": exit_price,
+                            "exit_price": exit_price,
                             "dd": dd_pct,
                         })
 
