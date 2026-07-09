@@ -1,6 +1,6 @@
-# ETF双动量轮动策略 v1.1.0
+# ETF双动量轮动策略 v1.2.1
 
-**etf-dual-momentum** — 32行业全覆盖 × 双动量 × Top-5分散 × 逐ETF PE刹车 × ATR日频止损 × 妙想自动化交易
+**etf-dual-momentum** — 32行业全覆盖 × 斜率×R²排名 × 风险平价仓位 × 逐ETF PE刹车 × 盘中止损 × 妙想自动化
 
 ## 策略概述
 
@@ -28,11 +28,13 @@
 |------|--------|------|
 | `momentum_window` | 180 | 绝对动量窗口 |
 | `relative_momentum_window` | 90 | 相对动量窗口 |
-| `rebalance_freq` | **biweekly** | 双周调仓 — #1最优 |
+| `rebalance_freq` | **wednesday** | 双周周三信号，周四调仓 |
 | `top_n` | **5** | Top-5分散 |
 | `abs_momentum_threshold` | **-0.05** | 宽松金丝雀（-5%门槛） |
 | `valuation_enabled` | **True** | 逐ETF PE刹车（AKShare csindex） |
-| `trailing_stop_atr_multiplier` | **1.0** | ATR紧止损 |
+| `trailing_stop_atr_multiplier` | **1.0** | ATR盘中止损（触及即退） |
+| `ranking_mode` | **slope×R²** | 动量排序（《趋势永存》+《量化动量》） |
+| `position_sizing` | **ATR风险平价** | 1/ATR加权（《趋势永存》） |
 
 ## 策略逻辑
 
@@ -142,16 +144,17 @@ industry-etf-dual-momentum/
 
 ## 版本历史
 
+### v1.2.1 (2026-07-09)
+- **盘中止损**：从收盘退出改为 `if low ≤ stop → exit at stop_price`，269/290次止损改善，累计省+399%
+- **周三调仓**：rebalance_freq="wednesday"，双周周三收盘信号→周四开盘执行，节假日顺延
+- **斜率×R²排名**：线性回归年化斜率 × R² 替代纯收益率排序，《趋势永存》实战+《量化动量》理论验证
+- **ATR风险平价**：1/ATR权重替代等权，分配风险预算，《趋势永存》标准做法
+- 回测: 双周周三+斜率×R²+风险平价，累计+743%, Sharpe 3.95
+
 ### v1.1.0 (2026-07-09)
 - **逐ETF PE刹车**：AKShare csindex 20条近期PE算相对位置，替代市场级一刀切
-- **参数优化**（5.5年westock数据，训练/测试分离）：
-  - 最优: momentum=180, rel=90, top_n=5, biweekly, atr=1.0, thr=-0.05
-  - 5年回测: 累计+1243%, Sharpe 4.88, 最大回撤-6.3%
-- **ATR 日频止损**：每日收盘检查 + 次日开盘执行 + 自动买入511880
-- **妙想自动化流水线**：盘后跟踪 + 开盘执行，2个自动化覆盖全流程
-- **交易日历**：AKShare tool_trade_date_hist_sina 自动跳过非交易日
-- **统一报告**：daily_{timestamp}.html/json/log，全线可追溯
+- **参数优化**（5.5年westock数据）: 180/90/Top5/biweekly/ATR1.0/thr=-0.05
+- ATR 日频止损、妙想自动化流水线、交易日历、统一报告
 
 ### v1.0.0 (2026-07-09)
-- 初始版本：基于 a-share-etf-momentum v2.0 框架扩展
-- 32行业ETF全池 + Top-3分散 + 前向参数优化 + 沪深300 PE刹车
+- 初始版本：32行业ETF全池 + Top-3 + 前向参数优化 + 沪深300 PE刹车
