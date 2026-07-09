@@ -100,6 +100,14 @@ def run_backtest(config: Config, output_dir: str = None):
 
 def generate_signal(config: Config):
     """生成当前调仓信号"""
+    # 0. 交易日检测
+    from .trading_calendar import is_trading_day
+    if not is_trading_day():
+        print("=" * 60)
+        print("行业ETF双动量轮动策略 - 今日非A股交易日，跳过信号生成")
+        print("=" * 60)
+        return None
+
     print("=" * 60)
     print("行业ETF双动量轮动策略 - 实时调仓信号")
     print("=" * 60)
