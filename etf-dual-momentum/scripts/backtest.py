@@ -194,16 +194,16 @@ class BacktestEngine:
 
                     stop_price = state["highest"] - self.config.trailing_stop_atr_multiplier * state["entry_atr"]
 
-                    # ★ v1.2.1: 盘中触及即退出（用stop_price而非close）
-                    if today_low is not None and today_low <= stop_price:
-                        exit_price = stop_price  # 保守假设在止损位退出
+                    # ★ v1.2.1: 收盘退出（实证：盘中low噪音过大，收盘止损更优）
+                    if today_close is not None and today_close <= stop_price:
+                        exit_price = today_close
                         to_remove.append(code)
                         dd_pct = (exit_price / state["entry_price"] - 1) * 100
                         self.stop_events.append({
                             "date": date.strftime("%Y-%m-%d"),
                             "code": code,
                             "entry_price": state["entry_price"],
-                            "stop_price": exit_price,
+                            "stop_price": stop_price,
                             "exit_price": exit_price,
                             "dd": dd_pct,
                         })
