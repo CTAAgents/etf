@@ -146,7 +146,10 @@ class BacktestEngine:
                 signal = self.strategy.generate_signal(data_slice, date)
                 current_holdings = signal.selected_etfs
                 n = len(current_holdings)
-                holding_weights = {code: 1.0/n for code in current_holdings}
+                # ★ v1.2.0: ATR风险平价权重
+                mom_results = getattr(self.strategy, '_last_momentum_results', None)
+                weight_dict = self.strategy.momentum_calc.get_position_weights(mom_results or [], current_holdings) if mom_results else {}
+                holding_weights = weight_dict if weight_dict else {code: 1.0/n for code in current_holdings}
                 last_rebalance_date = date
                 rebalance_count += 1
                 stop_state.clear()  # 调仓后重置所有止损

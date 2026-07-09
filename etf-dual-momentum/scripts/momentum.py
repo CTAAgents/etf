@@ -16,8 +16,12 @@ class MomentumResult:
     """动量计算结果"""
     code: str
     name: str
-    return_252d: float  # 252日累计收益率
-    rank: int  # 相对动量排名
+    return_252d: float  # 简单收益率（保留用于估值刹车判断）
+    score: float = 0.0  # ★ v1.2.0: 动量得分 = 年化斜率 × R²
+    slope: float = 0.0  # 线性回归年化斜率
+    r_squared: float = 0.0  # R²（趋势质量，0-1）
+    rank: int = 0  # 相对动量排名
+    atr: Optional[float] = None  # ★ v1.2.0: 20日ATR（风险平价用）
     pe_percentile: Optional[float] = None  # PE分位数
     pb_percentile: Optional[float] = None  # PB分位数
     valuation_triggered: bool = False  # 估值刹车是否触发
@@ -66,12 +70,35 @@ class MomentumCalculator:
         is_bullish = return_252d > self.config.abs_momentum_threshold
         return is_bullish, return_252d
 
+    def _calc_slope_r2(self, closes: np.ndarray) -> Tuple[float, float, float]:
+        """
+        计算线性回归斜率、年化斜率和R²。
+        
+        原理（Clenow / Gray & Vogel）:
+        得分 = 年化斜率 × R² — 惩罚锯齿趋势，奖励平滑趋势
+        """
+        n = len(closes)
+        if n < 10:
+            return 0.0, 0.0, 0.0
+        
+        x = np.arange(n, dtype=float)
+        y = closes / closes[0]
+        
+        cov = np.cov(x, y, ddof=1)
+        slope = cov[0, 1] / cov[0, 0]
+        
+        y_pred = slope * x + np.mean(y) - slope * np.mean(x)
+        ss_res = np.sum((y - y_pred) ** 2)
+        ss_tot = np.sum((y - np.mean(y)) ** 2)
+        r_squared = 1 - ss_res / ss_tot if ss_tot > 0 else 0.0
+        r_squared = max(0.0, min(1.0, r_squared))
+        
+        annualized_slope = slope * 252
+        return annualized_slope, r_squared, slope
+
     def calculate_relative_momentum(self, data: Dict[str, pd.DataFrame]) -> List[MomentumResult]:
         """
-        计算相对动量（行业赛马）
-
-        Returns:
-            按252日收益率降序排列的动量结果列表
+        计算相对动量（行业赛马）— v1.2.0: 斜率×R²排名
         """
         results = []
         for etf in self.config.industry_etfs:
@@ -83,23 +110,39 @@ class MomentumCalculator:
             if len(df) < self.config.relative_momentum_window:
                 continue
 
-            # 计算相对动量收益率
-            close_now = df["close"].iloc[-1]
-            close_ago = df["close"].iloc[-self.config.relative_momentum_window]
-            return_252d = (close_now / close_ago) - 1
+            closes = df["close"].values[-self.config.relative_momentum_window:]
+
+            # 简单收益率（保留，用于估值刹车涨幅判断）
+            return_252d = (closes[-1] / closes[0]) - 1
+
+            # ★ v1.2.0: 斜率 × R² 动量得分
+            annual_slope, r2, _ = self._calc_slope_r2(closes)
+            score = annual_slope * r2
+
+            # 20日ATR（风险平价用）
+            atr_val = None
+            try:
+                atr_series = calculate_atr(df, 20)
+                if atr_series is not None:
+                    atr_val = float(atr_series.dropna().iloc[-1])
+            except Exception:
+                pass
 
             result = MomentumResult(
                 code=code,
                 name=etf.name,
                 return_252d=return_252d,
-                rank=0  # 后续排序赋值
+                rank=0,
+                score=score,
+                slope=annual_slope,
+                r_squared=r2,
+                atr=atr_val,
             )
             results.append(result)
 
-        # 按收益率降序排序
-        results.sort(key=lambda x: x.return_252d, reverse=True)
+        # ★ v1.2.0: 按得分降序，同等分时按收益率降序
+        results.sort(key=lambda x: (x.score, x.return_252d), reverse=True)
 
-        # 赋予排名
         for i, result in enumerate(results):
             result.rank = i + 1
 
@@ -194,6 +237,43 @@ class MomentumCalculator:
                 break
         return selected
 
+    def get_position_weights(self, momentum_results, selected_codes=None) -> Dict[str, float]:
+        """
+        ★ v1.2.0: ATR风险平价权重。
+
+        原理（Clenow / Antonacci）:
+        - 分配的是风险预算，不是资金预算
+        - 高波动ETF = 小仓位，低波动ETF = 大仓位
+        - 权重 ∝ 1/ATR
+
+        Returns:
+            {code: weight} — 权重之和=1.0
+        """
+        if selected_codes is None:
+            selected_codes = self.select_targets(momentum_results)
+
+        if not selected_codes:
+            return {}
+
+        # 构建 code → MomentumResult 查找表
+        code_map = {r.code: r for r in momentum_results}
+
+        inv_atr = {}
+        for code in selected_codes:
+            r = code_map.get(code)
+            if r and r.atr and r.atr > 0:
+                inv_atr[code] = 1.0 / r.atr
+            else:
+                # 无ATR数据 → 等权fallback
+                inv_atr[code] = 1.0
+
+        total = sum(inv_atr.values())
+        if total <= 0:
+            n = len(selected_codes)
+            return {c: 1.0 / n for c in selected_codes}
+
+        return {c: v / total for c, v in inv_atr.items()}
+
     def generate_momentum_report(self, momentum_results: List[MomentumResult],
                                 is_bullish: bool, benchmark_return: float) -> str:
         """生成动量排名报告"""
@@ -207,19 +287,18 @@ class MomentumCalculator:
         lines.append(f"\n【绝对动量】沪深300ETF {self.config.momentum_window}日收益率: {benchmark_return:.2%} → {status}")
 
         # 相对动量排名
-        lines.append(f"\n【相对动量】行业ETF排名（Top {self.config.top_n}）:")
+        lines.append(f"\n【相对动量】行业ETF排名（Top {self.config.top_n}）— v1.2.0 斜率×R²得分:")
         lines.append("-" * 80)
-        lines.append(f"{'排名':<6}{'代码':<10}{'名称':<12}{'收益':<12}{'PE分位':<10}{'PB分位':<10}{'刹车':<8}{'入选':<8}")
+        lines.append(f"{'排名':<6}{'代码':<10}{'名称':<12}{'得分':<10}{'斜率':<10}{'R²':<8}{'收益':<10}{'刹车':<8}{'入选':<8}")
         lines.append("-" * 80)
 
         targets = self.select_targets(momentum_results, benchmark_return)
         for r in momentum_results:
-            pe_str = f"{r.pe_percentile:.1f}%" if r.pe_percentile is not None else "N/A"
-            pb_str = f"{r.pb_percentile:.1f}%" if r.pb_percentile is not None else "N/A"
             brake = "✓ 触发" if r.valuation_triggered else "✗"
             selected = "✓" if r.code in targets else ""
             lines.append(f"{r.rank:<6}{r.code:<10}{r.name:<12}"
-                        f"{r.return_252d:<12.2%}{pe_str:<10}{pb_str:<10}{brake:<8}{selected:<8}")
+                        f"{r.score:<10.4f}{r.slope:<10.4f}{r.r_squared:<8.4f}"
+                        f"{r.return_252d:<10.2%}{brake:<8}{selected:<8}")
 
         if targets:
             names = [self.config.get_etf_by_code(c).name for c in targets]

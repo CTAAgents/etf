@@ -113,6 +113,7 @@ class DualMomentumStrategy:
 
         # Step 2: 相对动量计算
         momentum_results = self.momentum_calc.calculate_relative_momentum(data)
+        self._last_momentum_results = momentum_results  # ★ v1.2.0: 暴露给回测做风险平价
 
         # Step 3: 估值分位刹车（若启用）
         if self.config.valuation_enabled:
@@ -144,17 +145,19 @@ class DualMomentumStrategy:
             )
         else:
             # 等权分配仓位
-            weight = 1.0 / len(selected_codes)
+            # ★ v1.2.0: ATR风险平价权重
+            weights = self.momentum_calc.get_position_weights(momentum_results, selected_codes)
             signals = []
             for code in selected_codes:
                 etf_cfg = self.config.get_etf_by_code(code)
+                w = weights.get(code, 1.0/len(selected_codes))
                 signals.append(TradeSignal(
                     date=current_date,
                     action="buy",
                     code=code,
                     name=etf_cfg.name,
-                    weight=weight,
-                    reason=f"动量排名Top-{len(selected_codes)}，跑赢基准，等权{weight:.0%}"
+                    weight=w,
+                    reason=f"动量排名Top-{len(selected_codes)}，跑赢基准，风险平价{w:.0%}"
                 ))
             names = [self.config.get_etf_by_code(c).name for c in selected_codes]
             record = RebalanceRecord(
@@ -164,7 +167,7 @@ class DualMomentumStrategy:
                 momentum_ranking=momentum_results,
                 selected_etfs=selected_codes,
                 trade_signals=signals,
-                reason=f"多头市场，等权持有Top-{len(selected_codes)}: {', '.join(names)}"
+                reason=f"多头市场，风险平价持有Top-{len(selected_codes)}: {', '.join(names)}"
             )
 
         self.rebalance_records.append(record)
