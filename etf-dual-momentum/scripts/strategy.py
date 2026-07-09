@@ -50,20 +50,24 @@ class DualMomentumStrategy:
         if last_rebalance is None:
             return True
         
-        # 根据调仓频率判断
-        if self.config.rebalance_freq == "weekly":
-            # 每周五调仓（或者如果周五不是交易日，则在最近的交易日）
-            # 简化实现：每周调仓一次，不考虑具体星期几
+        if self.config.rebalance_freq == "wednesday":
+            # 周三收盘信号，周四调仓（遇节假日顺延至下一交易日）
+            # weekday: 0=Mon, 2=Wed
+            if current_date.weekday() == 2:
+                return True
+            # 如果错过周三（假期），距上次>=10天则强制补调
+            days_since_last = (current_date - last_rebalance).days
+            return days_since_last >= 10
+
+        elif self.config.rebalance_freq == "weekly":
             days_since_last = (current_date - last_rebalance).days
             return days_since_last >= 7
         
         elif self.config.rebalance_freq == "biweekly":
-            # 每两周调仓一次
             days_since_last = (current_date - last_rebalance).days
             return days_since_last >= 14
         
         else:  # monthly
-            # 月末调仓（原有逻辑）
             next_day = current_date + pd.Timedelta(days=1)
             return current_date.month != next_day.month
 

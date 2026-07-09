@@ -73,7 +73,7 @@ class Config:
     # ========== 动量参数（5.5年+PE刹车优化最优）==========
     momentum_window: int = 180  # 绝对动量窗口
     relative_momentum_window: int = 90  # 相对动量窗口
-    rebalance_freq: str = "biweekly"    # 调仓频率 — #1最优（双周）
+    rebalance_freq: str = "wednesday"  # 周三收盘信号，周四调仓
     top_n: int = 5  # Top-5分散
 
     # ========== 绝对动量参数 ==========
