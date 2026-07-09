@@ -70,30 +70,25 @@ class Config:
         code="511880", name="银华日利", category="defensive", index_code=None
     ))
 
-    # ========== 动量参数（Phase 1 优化最优）==========
-    momentum_window: int = 180  # 绝对动量窗口（交易日）— 优化最优
-    relative_momentum_window: int = 75  # 相对动量窗口（交易日）— 优化最优
-    rebalance_freq: str = "monthly"    # 调仓频率
-    top_n: int = 3  # 优化最优: Top-3分散
+    # ========== 动量参数（Phase 2 westock优化最优）==========
+    momentum_window: int = 180  # 绝对动量窗口 — Phase2最优
+    relative_momentum_window: int = 90  # 相对动量窗口 — Phase2最优
+    rebalance_freq: str = "biweekly"    # 调仓频率 — Phase2最优（双周）
+    top_n: int = 5  # Phase2最优: Top-5分散
 
     # ========== 绝对动量参数 ==========
-    abs_momentum_threshold: float = 0.0  # >0为多头市场
+    abs_momentum_threshold: float = -0.05  # Phase2最优: 宽松金丝雀（-5%门槛）
 
     # ========== 估值刹车参数 ==========
     valuation_pe_threshold: float = 80.0
     valuation_return_threshold: float = 0.30
     valuation_lookback_years: int = 5
-    valuation_enabled: bool = True
-
-    # ========== 资金与成本 ==========
-    initial_capital: float = 1_000_000
-    commission_rate: float = 0.001
-    slippage_rate: float = 0.0001
+    valuation_enabled: bool = False  # Phase2最优: 回测中纯动量更优，估值刹车为可选手动启用
 
     # ========== ATR移动跟踪止损 ==========
     trailing_stop_enabled: bool = True
     trailing_stop_atr_period: int = 14
-    trailing_stop_atr_multiplier: float = 1.5
+    trailing_stop_atr_multiplier: float = 1.0  # Phase2最优: 紧止损（1.0×ATR）
 
     # ========== 数据源配置 ==========
     data_source: str = "westock"

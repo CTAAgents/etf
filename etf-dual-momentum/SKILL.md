@@ -26,35 +26,33 @@
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `momentum_window` | 180 | 绝对动量窗口（交易日）— 优化最优 |
-| `relative_momentum_window` | 75 | 相对动量窗口（交易日）— 优化最优 |
-| `rebalance_freq` | monthly | 调仓频率（月末）— 优化最优 |
-| `top_n` | **3** | Top-3分散持仓 — 优化最优 |
-| `valuation_enabled` | True | 估值刹车（AKShare沪深300 PE分位） |
-| `valuation_pe_threshold` | 80 | PE分位刹车阈值（%） |
-| `valuation_return_threshold` | 0.30 | 涨幅刹车阈值 |
-| `trailing_stop_atr_multiplier` | 1.5 | ATR止损倍数 |
+| `momentum_window` | 180 | 绝对动量窗口 — Phase2 westock最优 |
+| `relative_momentum_window` | 90 | 相对动量窗口 — Phase2 westock最优 |
+| `rebalance_freq` | **biweekly** | 调仓频率 — Phase2最优（双周） |
+| `top_n` | **5** | Top-5分散 — Phase2最优 |
+| `abs_momentum_threshold` | **-0.05** | 绝对动量阈值 — 宽松金丝雀 |
+| `valuation_enabled` | False | 估值刹车（可选手动启用） |
+| `trailing_stop_atr_multiplier` | **1.0** | ATR止损倍数 — 紧止损 |
 
 ## 策略逻辑
 
 ```
-每月最后一个交易日:
+每月最后一个交易日（双周调仓）:
 
 Step 1: 绝对动量（金丝雀）
-  └─ 沪深300ETF 180日收益率 ≤ 0 → 全仓银华日利
+  └─ 沪深300ETF 180日收益率 ≤ -5% → 全仓银华日利
 
 Step 2: 相对动量（行业赛马 ★32只）
-  └─ 32行业ETF按75日收益率降序排列
+  └─ 32行业ETF按90日收益率降序排列
 
-Step 3: 估值刹车（市场级——沪深300 PE分位）
+Step 3: 估值刹车（市场级——沪深300 PE分位, 默认关闭）
   └─ 沪深300 PE 5年分位 > 80% → 对所有涨幅>30%的ETF刹车
-  └─ 数据源：AKShare stock_index_pe_lg（首次查询缓存）
 
-Step 4: Top-3等权持仓
-  └─ 每只1/3仓位
+Step 4: Top-5等权持仓（Phase2最优）
+  └─ 每只20%仓位
 
 Step 5: ATR移动跟踪止损
-  └─ 日频检查：价格跌破(入场价-1.5×入场ATR) → 次日开盘退出
+  └─ 日频检查：价格跌破(入场价-1.0×入场ATR) → 次日开盘退出
   └─ 止损后进入货币ETF等待下次调仓
 
 Step 6: 交易执行
@@ -111,9 +109,17 @@ industry-etf-dual-momentum/
 | 持仓集中度 | 100%单行业 | 各33%三行业 |
 | 行业覆盖 | 6个代表性行业 | 全申万一级行业 |
 | 策略框架 | 双动量+估值刹车+ATR止损 | 继承 + AKShare市场级估值刹车 |
-| 绝对动量窗口 | 90天 | **180天（优化最优）** |
-| 相对动量窗口 | 30天 | **75天（优化最优）** |
+| 绝对动量窗口 | 90天 | **180天（Phase2最优）** |
+| 相对动量窗口 | 30天 | **90天（Phase2最优）** |
+| 调仓频率 | 月频 | **双周（Phase2最优）** |
 | 估值刹车 | PE分位（逐ETF） | **沪深300 PE分位（AKShare）** |
+
+## 仓库管理
+
+- **GitHub**: [CTAAgents/etf](https://github.com/CTAAgents/etf) · 子目录 `etf-dual-momentum/`
+- **同步**: `bash sync_etf_skill.sh` → rsync → commit → push
+- **SSH Key**: `~/.ssh/cta_deploy_ed25519`
+- **同级 skills**: `etf-trend-signal` / `a-share-etf-momentum` / `quantitative-momentum-stock-selection`
 
 ## 风险提示
 
