@@ -73,11 +73,11 @@ class Config:
     # ========== 动量参数（5.5年+PE刹车优化最优）==========
     momentum_window: int = 180  # 绝对动量窗口
     relative_momentum_window: int = 90  # 相对动量窗口
-    rebalance_freq: str = "monthly"    # 调仓频率 — train/test最均衡
+    rebalance_freq: str = "biweekly"    # 调仓频率 — #1最优（双周）
     top_n: int = 5  # Top-5分散
 
     # ========== 绝对动量参数 ==========
-    abs_momentum_threshold: float = 0.0  # 标准金丝雀（沪深300跌就撤）
+    abs_momentum_threshold: float = -0.05  # 宽松金丝雀（沪深300跌超5%才撤）
 
     # ========== 估值刹车参数 ==========
     valuation_pe_threshold: float = 80.0

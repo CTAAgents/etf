@@ -28,9 +28,9 @@
 |------|--------|------|
 | `momentum_window` | 180 | 绝对动量窗口 |
 | `relative_momentum_window` | 90 | 相对动量窗口 |
-| `rebalance_freq` | **monthly** | 月频调仓 — train/test最均衡 |
+| `rebalance_freq` | **biweekly** | 双周调仓 — #1最优 |
 | `top_n` | **5** | Top-5分散 |
-| `abs_momentum_threshold` | **0.0** | 绝对动量阈值（标准金丝雀） |
+| `abs_momentum_threshold` | **-0.05** | 宽松金丝雀（-5%门槛） |
 | `valuation_enabled` | **True** | 逐ETF PE刹车（AKShare csindex） |
 | `trailing_stop_atr_multiplier` | **1.0** | ATR紧止损 |
 

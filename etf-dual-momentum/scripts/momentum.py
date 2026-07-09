@@ -155,17 +155,15 @@ class MomentumCalculator:
             return None
 
     def fetch_all_valuation_data(self, etf_codes=None) -> Dict[str, float]:
-        """逐ETF估值刹车：获取每个行业的PE相对位置，无数据则跳过。"""
+        """逐ETF估值数据：返回所有可获取PE位置的ETF（不做阈值过滤）。"""
         if etf_codes is None:
             etf_codes = [e.code for e in self.config.industry_etfs]
         pe_data = {}
         for code in etf_codes:
             info = self.fetch_etf_pe_data(code)
-            if info and info['pe_position'] > self.config.valuation_pe_threshold:
+            if info:
                 pe_data[code] = info['pe_position']
-        if not pe_data:
-            return {}  # 所有ETF无PE数据 → 刹车不生效
-        return pe_data
+        return pe_data  # 返回全部PE数据，包括低于阈值的
 
     def apply_valuation_brake(self, momentum_results, pe_data=None):
         """逐ETF估值刹车：单只ETF的PE相对位置>阈值 且 涨幅>30% → 跳过该ETF。"""
