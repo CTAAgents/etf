@@ -105,56 +105,84 @@ class MomentumCalculator:
 
         return results
 
-    def fetch_market_pe_data(self) -> Optional[Dict[str, float]]:
-        """通过AKShare获取沪深300历史PE并计算当前分位数（带缓存）。"""
-        # 缓存：避免每次调仓都重新请求AKShare
-        if hasattr(self, '_market_pe_cache'):
-            return self._market_pe_cache
+    def fetch_etf_pe_data(self, etf_code: str) -> Optional[Dict[str, float]]:
+        """逐ETF获取PE数据：AKShare csindex 20条近期PE，计算当前PE的相对位置（缓存）。"""
+        cache_key = f'_pe_{etf_code}'
+        if hasattr(self, cache_key):
+            return getattr(self, cache_key)
+
+        index_code = self.config.get_index_code(etf_code)
+        if index_code is None:
+            setattr(self, cache_key, None)
+            return None
+
         try:
             import akshare as ak
-            df = ak.stock_index_pe_lg(symbol='沪深300')
-            if df is None or df.empty:
+            df = ak.stock_zh_index_value_csindex(symbol=index_code)
+            if df is None or df.empty or len(df) < 5:
+                setattr(self, cache_key, None)
                 return None
-            pe_series = df['滚动市盈率'].dropna()
-            if len(pe_series) < 252:
+
+            pe_col = '市盈率1' if '市盈率1' in df.columns else None
+            if pe_col is None:
+                setattr(self, cache_key, None)
                 return None
-            current_pe = float(pe_series.iloc[-1])
-            lookback = self.config.valuation_lookback_years * 252
-            hist = pe_series.iloc[-min(len(pe_series), lookback):]
-            percentile = (hist < current_pe).mean() * 100
-            self._market_pe_cache = {'pe_current': round(current_pe, 2), 'pe_percentile': round(percentile, 1), 'n_days': len(hist)}
-            return self._market_pe_cache
-        except Exception as e:
-            print(f"  估值刹车(AKShare): {e}")
+
+            pe_vals = df[pe_col].dropna().astype(float)
+            if len(pe_vals) < 5:
+                setattr(self, cache_key, None)
+                return None
+
+            current_pe = float(pe_vals.iloc[-1])
+            pe_min, pe_max = float(pe_vals.min()), float(pe_vals.max())
+            # 当前PE在20条数据范围中的相对位置（0-100）
+            if pe_max > pe_min:
+                position = (current_pe - pe_min) / (pe_max - pe_min) * 100
+            else:
+                position = 50.0
+
+            result = {
+                'pe_current': round(current_pe, 2),
+                'pe_position': round(position, 1),
+                'pe_min': round(pe_min, 2),
+                'pe_max': round(pe_max, 2),
+                'n_points': len(pe_vals),
+            }
+            setattr(self, cache_key, result)
+            return result
+        except Exception:
+            setattr(self, cache_key, None)
             return None
 
     def fetch_all_valuation_data(self, etf_codes=None) -> Dict[str, float]:
-        """市场级估值刹车：沪深300 PE分位替代逐ETF估值。"""
-        market_pe = self.fetch_market_pe_data()
-        if market_pe is None:
-            return {}
-        pe_pct = market_pe['pe_percentile']
-        pe_val = market_pe['pe_current']
-        print(f"  沪深300 PE={pe_val} 分位={pe_pct:.1f}% (刹车阈值={self.config.valuation_pe_threshold}%)")
-        return {'_market': pe_pct}
+        """逐ETF估值刹车：获取每个行业的PE相对位置，无数据则跳过。"""
+        if etf_codes is None:
+            etf_codes = [e.code for e in self.config.industry_etfs]
+        pe_data = {}
+        for code in etf_codes:
+            info = self.fetch_etf_pe_data(code)
+            if info and info['pe_position'] > self.config.valuation_pe_threshold:
+                pe_data[code] = info['pe_position']
+        if not pe_data:
+            return {}  # 所有ETF无PE数据 → 刹车不生效
+        return pe_data
 
     def apply_valuation_brake(self, momentum_results, pe_data=None):
-        """市场级估值刹车：沪深300 PE分位>阈值 → 跳过涨幅>30%的热门ETF。"""
+        """逐ETF估值刹车：单只ETF的PE相对位置>阈值 且 涨幅>30% → 跳过该ETF。"""
         if momentum_results is None:
             return []
         if pe_data is None:
             pe_data = self.fetch_all_valuation_data()
-        market_pct = pe_data.get('_market')
-        if market_pct is None:
-            return momentum_results
-        if market_pct > self.config.valuation_pe_threshold:
-            print(f"  ⚠ 估值刹车触发: 沪深300 PE分位={market_pct:.1f}% > {self.config.valuation_pe_threshold}%")
-            for r in momentum_results:
-                if r.return_252d > self.config.valuation_return_threshold:
+
+        for r in momentum_results:
+            pe_pct = pe_data.get(r.code)
+            r.valuation_triggered = False
+            if pe_pct is not None:
+                r.pe_percentile = pe_pct
+                if pe_pct > self.config.valuation_pe_threshold and r.return_252d > self.config.valuation_return_threshold:
                     r.valuation_triggered = True
-        else:
-            for r in momentum_results:
-                r.valuation_triggered = False
+
+        return momentum_results
     def select_targets(self, momentum_results, benchmark_return=None):
         """Top-N选股：动量排名中选取未触发估值刹车的ETF。"""
         if momentum_results is None:

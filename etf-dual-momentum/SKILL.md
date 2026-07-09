@@ -26,34 +26,34 @@
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `momentum_window` | 180 | 绝对动量窗口 — Phase2 westock最优 |
-| `relative_momentum_window` | 90 | 相对动量窗口 — Phase2 westock最优 |
-| `rebalance_freq` | **biweekly** | 调仓频率 — Phase2最优（双周） |
-| `top_n` | **5** | Top-5分散 — Phase2最优 |
-| `abs_momentum_threshold` | **-0.05** | 绝对动量阈值 — 宽松金丝雀 |
-| `valuation_enabled` | False | 估值刹车（可选手动启用） |
-| `trailing_stop_atr_multiplier` | **1.0** | ATR止损倍数 — 紧止损 |
+| `momentum_window` | 180 | 绝对动量窗口 |
+| `relative_momentum_window` | 90 | 相对动量窗口 |
+| `rebalance_freq` | **monthly** | 月频调仓 — train/test最均衡 |
+| `top_n` | **5** | Top-5分散 |
+| `abs_momentum_threshold` | **0.0** | 绝对动量阈值（标准金丝雀） |
+| `valuation_enabled` | **True** | 逐ETF PE刹车（AKShare csindex） |
+| `trailing_stop_atr_multiplier` | **1.0** | ATR紧止损 |
 
 ## 策略逻辑
 
 ```
-每月最后一个交易日（双周调仓）:
+月末调仓:
 
 Step 1: 绝对动量（金丝雀）
-  └─ 沪深300ETF 180日收益率 ≤ -5% → 全仓银华日利
+  └─ 沪深300ETF 180日收益率 ≤ 0 → 全仓银华日利
 
 Step 2: 相对动量（行业赛马 ★32只）
   └─ 32行业ETF按90日收益率降序排列
 
-Step 3: 估值刹车（市场级——沪深300 PE分位, 默认关闭）
-  └─ 沪深300 PE 5年分位 > 80% → 对所有涨幅>30%的ETF刹车
+Step 3: 估值刹车（逐ETF PE——AKShare csindex）
+  └─ 单只ETF跟踪指数PE在近期20条数据中处于高位(>80%) 且 涨幅>30% → 跳过该ETF
+  └─ 无PE数据的ETF默认不刹车
 
-Step 4: Top-5等权持仓（Phase2最优）
+Step 4: Top-5等权持仓
   └─ 每只20%仓位
 
 Step 5: ATR移动跟踪止损
   └─ 日频检查：价格跌破(入场价-1.0×入场ATR) → 次日开盘退出
-  └─ 止损后进入货币ETF等待下次调仓
 
 Step 6: 交易执行
   └─ 卖出非目标ETF → 买入选中ETF
