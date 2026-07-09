@@ -172,7 +172,47 @@ def generate_signal(config: Config):
     print("  2. 请根据个人风险承受能力调整仓位")
     print("  3. 建议设置止损线，控制单笔亏损")
 
+    # ---- 保存ATR入场状态（供日频止损检查使用） ----
+    if etfs and etfs[0] != config.defensive.code and config.trailing_stop_enabled:
+        _save_atr_entry_state(config, data, etfs)
+
     return signal
+
+
+def _save_atr_entry_state(config, data, selected_etfs):
+    """保存调仓日各选中ETF的入场价和入场ATR"""
+    import json, os
+    from .momentum import calculate_atr
+
+    reports_dir = os.path.join(os.path.dirname(__file__), "reports")
+    os.makedirs(reports_dir, exist_ok=True)
+    state_path = os.path.join(reports_dir, "atr_state.json")
+
+    state = {}
+    for code in selected_etfs:
+        df = data.get(code)
+        if df is None or df.empty:
+            continue
+        try:
+            entry_price = float(df['close'].iloc[-1])
+            atr_series = calculate_atr(df, config.trailing_stop_atr_period)
+            if atr_series is not None:
+                entry_atr = float(atr_series.dropna().iloc[-1])
+            else:
+                entry_atr = entry_price * 0.02  # 降级: ATR不可用时用2%
+        except Exception:
+            continue
+
+        state[code] = {
+            "entry_price": round(entry_price, 4),
+            "entry_atr": round(entry_atr, 4),
+            "entry_date": datetime.now().strftime('%Y-%m-%d'),
+            "highest": round(entry_price, 4),
+        }
+
+    with open(state_path, 'w') as f:
+        json.dump(state, f, ensure_ascii=False, indent=2)
+    print(f"\n  已保存ATR入场状态: {len(state)}只ETF → {state_path}")
 
 
 def update_data(config: Config, force_refresh: bool = False):
