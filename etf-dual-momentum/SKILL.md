@@ -1,6 +1,6 @@
-# ETF双动量轮动策略 v1.0
+# ETF双动量轮动策略 v1.1.0
 
-**etf-dual-momentum** — 32行业全覆盖 × 双动量 × Top-N分散 × 估值刹车 × ATR跟踪止损
+**etf-dual-momentum** — 32行业全覆盖 × 双动量 × Top-5分散 × 逐ETF PE刹车 × ATR日频止损 × 妙想自动化交易
 
 ## 策略概述
 
@@ -124,18 +124,34 @@ industry-etf-dual-momentum/
 ## 风险提示
 
 - 动量衰减：行业快速轮动期可能表现不佳
-- 32只ETF覆盖下的选股分散可能导致超额收益被稀释
-- PE估值数据依赖 AKShare 可用性，离线时估值刹车可能失效
+- PE估值数据依赖 AKShare csindex（20条近期数据），分位计算精度有限
 - 回测不代表未来收益
+- 双周调仓+紧止损导致高换手（年化~27倍），实盘成本不可忽略
+
+## 仓库管理
+
+- **GitHub**: [CTAAgents/etf](https://github.com/CTAAgents/etf) · 子目录 `etf-dual-momentum/`
+- **同步**: `bash sync_etf_skill.sh` → rsync → commit → push
+
+## 自动化任务
+
+| 时间 | 任务 |
+|:---:|------|
+| T日 15:30 | 盘后跟踪：信号计算 + ATR止损检查 → daily_{timestamp}.html/json |
+| T+1 9:30 | 开盘执行：止损卖出→买511880 → 调仓买卖 → daily_{timestamp}_exec.html/log |
 
 ## 版本历史
 
+### v1.1.0 (2026-07-09)
+- **逐ETF PE刹车**：AKShare csindex 20条近期PE算相对位置，替代市场级一刀切
+- **参数优化**（5.5年westock数据，训练/测试分离）：
+  - 最优: momentum=180, rel=90, top_n=5, biweekly, atr=1.0, thr=-0.05
+  - 5年回测: 累计+1243%, Sharpe 4.88, 最大回撤-6.3%
+- **ATR 日频止损**：每日收盘检查 + 次日开盘执行 + 自动买入511880
+- **妙想自动化流水线**：盘后跟踪 + 开盘执行，2个自动化覆盖全流程
+- **交易日历**：AKShare tool_trade_date_hist_sina 自动跳过非交易日
+- **统一报告**：daily_{timestamp}.html/json/log，全线可追溯
+
 ### v1.0.0 (2026-07-09)
 - 初始版本：基于 a-share-etf-momentum v2.0 框架扩展
-- **32行业ETF全池**：整合 etf-trend-signal 的全部行业 ETF
-- **Top-3 分散持仓**：提升行业轮动的风险分散度
-- **前向参数优化**（36组网格搜索，训练/测试分离）：
-  - 最优参数: momentum=180, rel=75, top_n=3, monthly
-  - 测试期(2024.07-2026.07): Sharpe=3.846, 年化=70.5%, 最大回撤=-9.8%
-- **估值刹车AKShare化**：沪深300 PE分位（`stock_index_pe_lg`）替代逐ETF查询，首次缓存
-- 继承双动量 + ATR移动跟踪止损（1.5×ATR14）
+- 32行业ETF全池 + Top-3分散 + 前向参数优化 + 沪深300 PE刹车
