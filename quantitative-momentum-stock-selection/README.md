@@ -1,6 +1,7 @@
-# 量化动量选股系统 v1.1.0 (A股优化版)
+# 量化动量选股系统 v1.2.0 — 数据源：腾讯自选股 MCP
 
 基于《构建量化动量选股系统的实用指南》的完整动量选股策略，针对A股市场特性进行全面优化。
+**v1.2.0 数据源：腾讯自选股 MCP (westock-mcp connector)，无需 AKShare/Tushare 依赖。**
 
 ## 核心理念
 
@@ -10,18 +11,27 @@
 - 价值投资者：买入便宜的"失宠"股
 - 动量投资者：勇敢追涨，买入价格走势强劲股
 
-## A股优化特性（v1.1.0）
+## A股优化特性（v1.2.0）
 
 ### 1. 市场特性适配
 - **涨跌停限制处理**：自动过滤涨跌停数据，跌停时强制止损
 - **T+1交易制度适配**：更紧的止损设置，更短的动量窗口
 - **散户行为影响**：提高成交量确认权重（25%）
 
-### 2. A股特有数据源
-- **北向资金数据**：外资动向指标
-- **融资融券数据**：杠杆资金动向
-- **行业资金流向**：行业资金流入流出
-- **涨跌停数据**：市场热度和风险指标
+### 2. 数据源 — 腾讯自选股 MCP
+- **行情数据**：`mcp__westock-mcp__data_kline`（日K/周K/月K，支持前复权）
+- **多因子排行**：`mcp__westock-mcp__tool_ranking`（综合评分/基本面/技术面/风险/资金）
+- **条件选股**：`mcp__westock-mcp__tool_filter`
+- **技术指标**：`mcp__westock-mcp__data_technical`（KDJ/MACD/RSI/BOLL）
+- **资金流向**：`mcp__westock-mcp__data_fund_flow`
+- **北向资金**：`mcp__westock-mcp__data_north_holding`
+- **个股概览**：`mcp__westock-mcp__data_profile`
+- **财务数据**：`mcp__westock-mcp__data_finance`
+- **机构预期**：`mcp__westock-mcp__data_consensus`
+- **筹码分布**：`mcp__westock-mcp__data_chip`
+- **大盘概览**：`mcp__westock-mcp__data_market_overview`
+- **板块数据**：`mcp__westock-mcp__data_sector`
+- **实时行情**：`mcp__westock-mcp__data_quote`
 
 ### 3. 参数优化
 - **动量窗口**：15/45/150天（原20/60/252天）
@@ -64,90 +74,68 @@
 
 ## 快速开始
 
-### 安装依赖
+### 前置条件
+- 确保 `westock-mcp` connector 已连接（状态：已连接）
 
-```bash
-pip install pandas numpy akshare
+### 单股分析流程（MCP 工具链）
+
+```
+Step 1: 搜索股票代码 → mcp__westock-mcp__data_search(query="贵州茅台")
+Step 2: 获取日线行情 → mcp__westock-mcp__data_kline(code=sh600519, period=day, limit=200, fq=qfq)
+Step 3: 技术指标   → mcp__westock-mcp__data_technical(code=sh600519, group=kdj,macd,rsi)
+Step 4: 公司概况   → mcp__westock-mcp__data_profile(code=sh600519)
+Step 5: 财务数据   → mcp__westock-mcp__data_finance(code=sh600519, type=income)
+Step 6: 机构预期   → mcp__westock-mcp__data_consensus(code=sh600519)
+Step 7: 资金流向   → mcp__westock-mcp__data_fund_flow(code=sh600519)
+Step 8: 北向持股   → mcp__westock-mcp__data_north_holding(code=sh600519)
 ```
 
-### 基本使用
+### 全市场动量扫描流程
 
-```python
-from scripts import get_config, DataCollector, MomentumScorer, MomentumStrategy
-
-# 初始化
-config = get_config()
-collector = DataCollector(config)
-scorer = MomentumScorer(config)
-strategy = MomentumStrategy(config)
-
-# 获取股票列表
-stock_list = collector.get_stock_list()
-
-# 获取股票历史数据
-stock_data = {}
-for stock_code in stock_list['code'].head(100):  # 示例：前100只股票
-    data = collector.get_stock_history(stock_code)
-    if not data.empty:
-        stock_data[stock_code] = data
-
-# 生成交易信号
-signals = strategy.generate_signals(stock_data)
-
-# 输出结果
-for signal in signals[:10]:  # Top 10 信号
-    print(f"{signal.stock_code} - {signal.stock_name}")
-    print(f"操作：{signal.action}")
-    print(f"动量分数：{signal.score.total_score:.1f}")
-    print(f"趋势阶段：{signal.score.trend_stage}")
-    print(f"原因：{signal.reason}")
-    print("-" * 50)
+```
+Step 1: 多因子排行 → mcp__westock-mcp__tool_ranking(metric=CompScore, limit=100)
+Step 2: 批量K线   → mcp__westock-mcp__data_kline(codes=..., period=day, limit=200)
+Step 3: 基本面筛选 → mcp__westock-mcp__tool_filter(expression="PE_TTM<30 AND ROE>10")
+Step 4: 技术确认   → mcp__westock-mcp__data_technical(codes=..., group=kdj,macd,rsi)
+Step 5: 资金验证   → mcp__westock-mcp__data_fund_flow(code=..., date=)
+Step 6: 综合打分   → 按动量打分算法计算各维度分数 → 输出Top N
 ```
 
-### 命令行使用
+所有数据操作通过 `mcp__westock-mcp__*` 工具完成，无需安装 `akshare` / `tushare` 等第三方 Python 金融数据库。
 
-```bash
-# 扫描全市场
-python -m scripts.main scan
+## 模块说明 — MCP 工具链架构
 
-# 分析单只股票
-python -m scripts.main analyze --stock 600519
+| 能力模块 | 对应 MCP 工具 |
+|---------|--------------|
+| **候选池构建** | `data_search`, `tool_filter`, `tool_ranking` |
+| **行情数据** | `data_kline(period=day, fq=qfq)` |
+| **动量打分** | `data_kline` + `data_technical` |
+| **基本面过滤** | `data_profile`, `data_finance`, `data_consensus` |
+| **资金流向** | `data_fund_flow`, `data_north_holding` |
+| **板块分析** | `data_sector` |
+| **市场概览** | `data_market_overview` |
+| **实时监控** | `data_quote` |
 
-# 运行回测
-python -m scripts.main backtest --start 2020-01-01 --end 2025-12-31
+## 数据源 — 腾讯自选股 MCP
 
-# 生成报告
-python -m scripts.main report
-```
+所有数据通过 `westock-mcp` connector 的 `mcp__westock-mcp__*` 工具获取，覆盖 14 类数据操作：
 
-## 模块说明
-
-| 模块 | 功能 |
-|------|------|
-| `config.py` | 系统参数、股票池配置、数据源配置 |
-| `data_collector.py` | 数据采集、缓存管理 |
-| `scoring.py` | 多维度动量打分系统 |
-| `strategy.py` | 策略核心逻辑、信号生成 |
-| `backtest.py` | 回测引擎、绩效统计 |
-| `report.py` | HTML报告生成 |
-
-## 数据源
-
-### 主要数据源
-
-| 数据类型 | 数据源 | 说明 |
-|----------|--------|------|
-| **股票行情** | AKShare / Tushare | 日线数据、分钟线数据 |
-| **财务数据** | AKShare / 东方财富 | 财务报表、估值数据 |
-| **行业数据** | AKShare | 行业分类、板块数据 |
-| **资金流向** | AKShare / 同花顺 | 主力资金、北向资金 |
-
-### 数据源优先级
-
-1. **本地缓存**：优先使用缓存数据，提高效率
-2. **AKShare**：免费、稳定、数据全面
-3. **Tushare**：专业金融数据接口
-4. **其他数据源**：作为降级备选
+| 数据类型 | MCP 工具 | 参数要点 |
+|---------|---------|---------|
+| 日线行情 | `data_kline` | `period=day, fq=qfq(前复权)` |
+| 行情快照 | `data_quote` | `codes=sh600519,sz000001` |
+| 个股概览 | `data_profile` | `code=sh600519` |
+| 财务数据 | `data_finance` | `type=income/balance/cashflow` |
+| 技术指标 | `data_technical` | `group=kdj,macd,rsi,boll` |
+| 资金流向 | `data_fund_flow` | `code=sh600519, start=, end=` |
+| 北向资金 | `data_north_holding` | `code=sh600519` |
+| 板块数据 | `data_sector` | `mode=constituent, code=板块码` |
+| 条件选股 | `tool_filter` | `expression="PE_TTM<20"` |
+| 多因子排行 | `tool_ranking` | `metric=CompScore, limit=20` |
+| 搜索股票 | `data_search` | `query=茅台, type=stock` |
+| 筹码分布 | `data_chip` | `code=sh600519` |
+| 机构预期 | `data_consensus` | `code=sh600519` |
+| 大盘概览 | `data_market_overview` | `type=summary` |
 
 ## 策略逻辑详解
 
@@ -264,6 +252,25 @@ def calculate_momentum_score(stock_data):
 5. **历史回测局限性**：过去的表现不代表未来收益，策略需要持续监控和优化
 
 ## 版本历史
+
+### v1.2.0 (2026-07-09) **数据源切换：westock-mcp**
+**数据源全面切换至腾讯自选股 MCP，移除 AKShare/Tushare 依赖**
+
+1. **数据源重构**：
+   - AKShare/Tushare → 全面替换为 `mcp__westock-mcp__*` 工具链
+   - 覆盖 14 类数据操作（行情/财务/技术/资金/北向/板块/筹码/排行/筛选）
+   - 无需安装第三方 Python 金融数据库
+
+2. **使用方式变更**：
+   - 全市场扫描 → `tool_ranking` + `tool_filter` + `data_kline` 组合
+   - 单股分析 → 8 步 MCP 工具链（search→kline→technical→profile→finance→consensus→fund_flow→north_holding）
+   - 实时信号 → `data_quote` 快照模式
+   - 代码格式：`sh600519` / `sz000001`（westock-mcp 标配）
+
+3. **全链路测试通过**：
+   - 14/14 工具连通性验证 100% 通过
+   - 2 处参数错误修复（tool_ranking/tool_filter 移除不支持参数）
+   - 所有金融字段含义验证一致
 
 ### v1.1.0 (2026-06-28) **A股优化版**
 **基于A股市场特性进行全面优化**
