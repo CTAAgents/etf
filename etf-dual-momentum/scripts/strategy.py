@@ -51,13 +51,14 @@ class DualMomentumStrategy:
             return True
         
         if self.config.rebalance_freq == "wednesday":
-            # 周三收盘信号，周四调仓（遇节假日顺延至下一交易日）
+            # 每两周的周三收盘信号，周四调仓（遇节假日顺延）
             # weekday: 0=Mon, 2=Wed
-            if current_date.weekday() == 2:
-                return True
-            # 如果错过周三（假期），距上次>=10天则强制补调
             days_since_last = (current_date - last_rebalance).days
-            return days_since_last >= 10
+            is_wed = current_date.weekday() == 2
+            # 周三 且 距上次≥14天 → 调仓；错过周三的假期14天后补调
+            if is_wed and days_since_last >= 10:
+                return True
+            return days_since_last >= 17
 
         elif self.config.rebalance_freq == "weekly":
             days_since_last = (current_date - last_rebalance).days
