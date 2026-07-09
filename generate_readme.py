@@ -72,6 +72,10 @@ SKILL_HIGHLIGHTS = {
     'a-share-etf-momentum': {
         'highlight': '年化44.30%，夏普1.275',
     },
+    'etf-dual-momentum': {
+        'highlight': 'Sharpe 3.85，年化70.5%，Top-3分散',
+        'description': 'ETF双动量轮动策略 — 32行业全覆盖，绝对+相对动量，AKShare估值刹车，ATR止损',
+    },
     'quantitative-momentum-stock-selection': {
         'highlight': '全市场扫描，T+1适配，北向资金',
     },
