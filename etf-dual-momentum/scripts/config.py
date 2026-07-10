@@ -1,6 +1,6 @@
 """
 行业ETF双动量轮动策略 - 配置模块 v1.0
-32行业全覆盖 + 双动量 + 估值刹车 + ATR跟踪止损
+31行业全覆盖 + 双动量 + 估值刹车 + ATR跟踪止损
 """
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
@@ -25,11 +25,10 @@ class Config:
     ))
 
     industry_etfs: List[ETFConfig] = field(default_factory=lambda: [
-        # ── 金融 5只 ──
+        # ── 金融 4只 ──
         ETFConfig(code="512800", name="银行ETF", category="industry", index_code="399986"),
-        ETFConfig(code="512070", name="非银ETF", category="industry", index_code="399975"),
+        ETFConfig(code="512070", name="保险ETF", category="industry", index_code="399975"),
         ETFConfig(code="512880", name="证券ETF", category="industry", index_code="399975"),
-        ETFConfig(code="512230", name="保险ETF", category="industry", index_code="399975"),
         ETFConfig(code="512200", name="房地产ETF", category="industry", index_code="399393"),
         # ── 消费 6只 ──
         ETFConfig(code="515170", name="食品饮料ETF", category="industry", index_code="000807"),
